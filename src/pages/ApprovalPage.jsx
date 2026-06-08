@@ -61,14 +61,13 @@ function formatCurrency(value) {
   return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
-function ApprovalStats({ label, value, note, icon: Icon }) {
+function ApprovalStats({ label, value, icon: Icon }) {
   return (
     <div className="app-panel-muted rounded-[26px] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
           <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-          <p className="mt-2 text-sm text-slate-600">{note}</p>
         </div>
         <div className="app-icon-shell flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70">
           <Icon className="h-5 w-5" />
@@ -354,25 +353,21 @@ export function ApprovalRegisterPanel() {
               icon={Wallet}
               label="Total entries"
               value={String(entries.length)}
-              note="All collection entries loaded in the register."
             />
             <ApprovalStats
               icon={Clock3}
               label="Pending"
               value={String(pendingEntries.length)}
-              note="Entries waiting for approval."
             />
             <ApprovalStats
               icon={CheckCircle2}
               label="Approved"
               value={String(approvedEntries.length)}
-              note="Entries already approved."
             />
             <ApprovalStats
               icon={Download}
               label="Filtered total"
               value={formatCurrency(totals.totalAmount)}
-              note={`Across ${totals.customers.size} unique customer${totals.customers.size === 1 ? "" : "s"}.`}
             />
           </div>
 
