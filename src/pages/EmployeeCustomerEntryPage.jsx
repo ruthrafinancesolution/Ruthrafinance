@@ -13,10 +13,6 @@ import {
   isRootDayLabel,
 } from "../utils/employeeScope";
 
-function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
-}
-
 function defaultDayLabel(selectedDay) {
   return selectedDay || "—";
 }
@@ -51,7 +47,7 @@ function getEmployeeSubCenterOptions(mainCenterFilter, assignedCenters, allCente
 export default function EmployeeCustomerEntryPage() {
   const { profile } = useAuth();
   const { customers, loading } = useLoanDataSync();
-  const { assignedCenters, assignedCentersLabel, allCenters, hasAssignedCenter, scopeCustomers } =
+  const { assignedCenters, allCenters, hasAssignedCenter, scopeCustomers } =
     useEmployeeCenterScope();
   const [mainCenterFilter, setMainCenterFilter] = useState("All");
   const [subCenterFilter, setSubCenterFilter] = useState("All");
@@ -132,16 +128,11 @@ export default function EmployeeCustomerEntryPage() {
         </label>
       </div>
 
-      {hasAssignedCenter ? (
-        <p className="mb-2 text-[11px] text-slate-500">
-          Centres: <span className="font-semibold text-slate-700">{assignedCentersLabel}</span>
-          {loading ? " · Loading…" : ` · ${filtered.length} shown`}
-        </p>
-      ) : (
+      {!hasAssignedCenter ? (
         <p className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           No centre assigned. Customer entries will appear here once your administrator assigns a centre.
         </p>
-      )}
+      ) : null}
 
       <ul className="flex flex-col gap-1.5">
         {filtered.map((customer) => {
@@ -157,10 +148,6 @@ export default function EmployeeCustomerEntryPage() {
                   <span className="truncate text-sm font-semibold text-slate-950">{customer.customerName || "Unnamed"}</span>
                   <span className="truncate text-[11px] text-slate-600">
                     {customer.mobileNumber || "—"} · {day.replace(" Centre", "")}
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-500">
-                    Loan {formatCurrency(customer.loanAmount)} · Due{" "}
-                    {customer.dueDate ? new Date(customer.dueDate).toLocaleDateString("en-GB") : "—"}
                   </span>
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />

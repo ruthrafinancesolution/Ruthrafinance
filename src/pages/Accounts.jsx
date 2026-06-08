@@ -335,7 +335,7 @@ function Panel({ title, eyebrow, actions, children, icon: Icon }) {
           ) : null}
           <div className="min-w-0">
             {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">{eyebrow}</p> : null}
-            <h3 className="mt-1 text-lg font-semibold text-slate-950">{title}</h3>
+            <h3 className={`text-lg font-semibold text-slate-950 ${eyebrow ? "mt-1" : ""}`}>{title}</h3>
           </div>
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
@@ -2058,7 +2058,7 @@ export default function Accounts() {
   return (
     <AdminLayout
       title="Accounts"
-      description="Income, expenses, payroll, and statements in one calm workspace."
+      description=""
       action={
         <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -2135,9 +2135,7 @@ export default function Accounts() {
         <section className="rounded-[22px] border border-slate-100/80 bg-white/90 px-4 py-3.5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] backdrop-blur-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-blue-600/90">Finance center</p>
-              <h2 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Accounts</h2>
-              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">Glance at health, then open a section for detail.</p>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Accounts</h2>
             </div>
             <div className="-mx-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto rounded-2xl bg-slate-100/70 p-1 sm:mx-0 sm:justify-end">
               {TABS.map((item) => (
@@ -2166,18 +2164,7 @@ export default function Accounts() {
         </section>
 
         <section className="rounded-[22px] border border-slate-100/90 bg-gradient-to-br from-white via-slate-50/40 to-white px-4 py-4 shadow-[0_2px_14px_rgba(15,23,42,0.04)]">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Office date range</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">Filters books, payroll register & exports</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Active: <span className="font-medium text-slate-700">{officeAppliedBounds.label}</span>
-                {officeDatePreset === "custom" && (!officeAppliedCustomFrom || !officeAppliedCustomTo) ? (
-                  <span className="text-amber-700"> · Pick dates and tap Apply</span>
-                ) : null}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
               {[
                 { key: "today", label: "Today" },
                 { key: "yesterday", label: "Yesterday" },
@@ -2196,7 +2183,6 @@ export default function Accounts() {
                   {p.label}
                 </button>
               ))}
-            </div>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="space-y-1">
@@ -2548,15 +2534,16 @@ export default function Accounts() {
                 </>
               }
             >
-              <p className="mb-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-                Showing office ledger lines for <span className="font-semibold text-slate-800">{officeAppliedBounds.label}</span>. Loan collections and
-                disbursements are not listed here — see <span className="font-semibold text-slate-800">Overview</span> for wallet and loan totals.
-              </p>
               <div className="flex flex-wrap gap-2">
-                <label className="relative min-w-[180px] flex-1">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input value={transactionSearch} onChange={(event) => setTransactionSearch(event.target.value)} className="app-input h-10 w-full pl-9 text-sm" placeholder="Search…" />
-                </label>
+                <div className="relative min-w-[180px] flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={transactionSearch}
+                    onChange={(event) => setTransactionSearch(event.target.value)}
+                    className="app-input h-10 w-full !pl-11 pr-4 text-sm"
+                    placeholder="Search…"
+                  />
+                </div>
                 <select value={transactionTypeFilter} onChange={(event) => setTransactionTypeFilter(event.target.value)} className="app-select h-10 min-w-[100px] text-sm">
                   <option value="all">All types</option>
                   <option value="income">Income</option>
@@ -2658,11 +2645,8 @@ export default function Accounts() {
             </div>
 
             <section className="grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-              <Panel title={editingSalaryId ? "Edit payroll" : "Payroll entry"} eyebrow="Salary" icon={BriefcaseBusiness}>
+              <Panel title={editingSalaryId ? "Edit payroll" : "Payroll entry"}>
                 <form className="space-y-2.5" onSubmit={handleSalarySubmit}>
-                  <p className="text-xs text-slate-500">
-                    ID <span className="font-mono font-semibold text-slate-800">{editingSalaryId || "auto on save"}</span>
-                  </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Employee</label>
@@ -2780,15 +2764,17 @@ export default function Accounts() {
               </div>
             </section>
 
-            <Panel title="Payroll register" eyebrow="History" icon={ReceiptText}>
-              <p className="mb-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-                Rows filtered by payment date within <span className="font-semibold text-slate-800">{officeAppliedBounds.label}</span> (salary month filters still apply below).
-              </p>
+            <Panel title="Payroll register">
               <div className="flex flex-wrap gap-2">
-                <label className="relative min-w-[180px] flex-1">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input value={salarySearch} onChange={(event) => setSalarySearch(event.target.value)} className="app-input h-10 w-full pl-9 text-sm" placeholder="Search…" />
-                </label>
+                <div className="relative min-w-[180px] flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={salarySearch}
+                    onChange={(event) => setSalarySearch(event.target.value)}
+                    className="app-input h-10 w-full !pl-11 pr-4 text-sm"
+                    placeholder="Search…"
+                  />
+                </div>
                 <select value={salaryStatusFilter} onChange={(event) => setSalaryStatusFilter(event.target.value)} className="app-select h-10 min-w-[120px] text-sm">
                   <option value="all">All status</option>
                   {SALARY_PAYMENT_STATUSES.map((item) => (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, MapPin, Pencil, Plus, Search } from "lucide-react";
+import { MapPin, Pencil, Plus, Search, UserCheck, UserX } from "lucide-react";
 import AdminLayout from "../components/dashboard/AdminLayout";
 import EmployeeFormModal, { EMPTY_EMPLOYEE_FORM } from "../components/employee/EmployeeFormModal.jsx";
 import AssignCentersModal from "../components/employee/AssignCentersModal.jsx";
@@ -11,6 +11,7 @@ import {
   listEmployees,
   updateEmployeeAdmin,
   updateEmployeeCenters,
+  updateEmployeeStatus,
 } from "../services/userAuth";
 import { buildCenterAssignmentOptions } from "../utils/employeeScope.js";
 import {
@@ -136,6 +137,7 @@ export default function EmployeePage() {
   const [assignModal, setAssignModal] = useState(null);
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignError, setAssignError] = useState("");
+  const [statusTogglingId, setStatusTogglingId] = useState("");
   const [centerOptions, setCenterOptions] = useState(() => buildCenterAssignmentOptions(loadLoanCenters()));
 
   const reloadEmployees = useCallback(async () => {
@@ -266,6 +268,30 @@ export default function EmployeePage() {
       setFormError(submitError.message || "Unable to save employee.");
     } finally {
       setFormSaving(false);
+    }
+  };
+
+  const handleToggleEmployeeStatus = async (row) => {
+    setStatusTogglingId(row.id);
+    setStatusMessage("");
+    setFormError("");
+    try {
+      const nextStatus = row.status === "active" ? "inactive" : "active";
+      await updateEmployeeStatus(row.id, nextStatus);
+      setEmployees((current) =>
+        current.map((employee) =>
+          employee.id === row.id ? { ...employee, employeeStatus: nextStatus } : employee
+        )
+      );
+      setStatusMessage(
+        nextStatus === "active"
+          ? `${row.employeeName} activated successfully.`
+          : `${row.employeeName} deactivated successfully.`
+      );
+    } catch (toggleError) {
+      setFormError(toggleError.message || "Unable to update employee status.");
+    } finally {
+      setStatusTogglingId("");
     }
   };
 
@@ -443,15 +469,21 @@ export default function EmployeePage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                setFormError("");
-                                setFormModal({ mode: "edit", row });
-                              }}
-                              title="View employee"
-                              aria-label="View employee"
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100"
+                              disabled={statusTogglingId === row.id}
+                              onClick={() => handleToggleEmployeeStatus(row)}
+                              title={row.status === "active" ? "Deactivate employee" : "Activate employee"}
+                              aria-label={row.status === "active" ? "Deactivate employee" : "Activate employee"}
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                row.status === "active"
+                                  ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              }`}
                             >
-                              <Eye className="h-3.5 w-3.5" />
+                              {row.status === "active" ? (
+                                <UserX className="h-3.5 w-3.5" />
+                              ) : (
+                                <UserCheck className="h-3.5 w-3.5" />
+                              )}
                             </button>
                           </div>
                         </td>

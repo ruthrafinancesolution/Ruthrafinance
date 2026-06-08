@@ -1,5 +1,6 @@
 /** Shared EMI schedule builder for customer profile & PDF (aligned with Reports.jsx). */
 
+import { enrichCustomerForCollection } from "./collectionCustomerUtils.js";
 import { getCollectionIntervalDays, normalizeCollectionFrequency } from "./loanTimelineDates.js";
 
 export function safeDate(value) {
@@ -62,10 +63,10 @@ export function isInstallmentPaid(item) {
 }
 
 export function getInstallmentAmount(customer, totalPayable) {
-  const explicit = Number(customer.emiAmount || 0);
+  const explicit = Number(customer.emiAmount || customer.weeklyDue || 0);
   if (explicit > 0) return explicit;
   const count = Math.max(Number(customer.loanWeeks || 0), 1);
-  return Math.round(totalPayable / count);
+  return totalPayable > 0 ? Math.round(totalPayable / count) : 0;
 }
 
 /**
@@ -73,12 +74,21 @@ export function getInstallmentAmount(customer, totalPayable) {
  * @param {object[]} customerEntries — entries for this customer only
  */
 export function buildInstallmentSchedule(customer, customerEntries) {
-  const frequency = normalizeCollectionFrequency(customer.collectionFrequency);
-  const totalPayable = Number(customer.totalPayable || 0);
-  const installmentCount = getInstallmentCount(customer, customerEntries);
-  const baseInstallment = getInstallmentAmount(customer, totalPayable);
+  const resolvedCustomer = enrichCustomerForCollection(customer);
+  const frequency = normalizeCollectionFrequency(resolvedCustomer.collectionFrequency);
+  const installmentCount = getInstallmentCount(resolvedCustomer, customerEntries);
+  const baseInstallment = getInstallmentAmount(
+    resolvedCustomer,
+    Number(resolvedCustomer.totalPayable || 0)
+  );
+  const totalPayable =
+    Number(resolvedCustomer.totalPayable || 0) > 0
+      ? Number(resolvedCustomer.totalPayable || 0)
+      : baseInstallment > 0
+        ? baseInstallment * installmentCount
+        : 0;
   const intervalDays = getCollectionIntervalDays(frequency);
-  const emiStartDate = resolveFirstEmiDate(customer);
+  const emiStartDate = resolveFirstEmiDate(resolvedCustomer);
   const approvedEntries = [...customerEntries]
     .filter((entry) => String(entry.approvalStatus || "").toLowerCase() === "approved")
     .sort((a, b) => String(a.collectionDate || a.submittedAt || "").localeCompare(String(b.collectionDate || b.submittedAt || "")));

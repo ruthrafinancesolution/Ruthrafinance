@@ -347,10 +347,6 @@ export function ApprovalRegisterPanel() {
                 </button>
               </div>
             </div>
-            <p className="mt-2 text-sm text-slate-600">
-              Select multiple rows to approve or reject in bulk, or use row actions for single entries. On smaller
-              screens, scroll the table horizontally to see all columns.
-            </p>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">

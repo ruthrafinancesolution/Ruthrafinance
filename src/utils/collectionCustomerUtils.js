@@ -100,14 +100,19 @@ export function enrichCustomerForCollection(customer) {
     new Date().toISOString().slice(0, 10);
 
   const weeklyDue = Number(customer.weeklyDue || customer.emiAmount || calculated.emiAmount || 0);
-  const totalPayable = Number(customer.totalPayable || calculated.totalPayable || 0);
+  const resolvedWeeks = loanWeeks || calculated.loanWeeks || 0;
+  const resolvedEmi = Number(customer.emiAmount || weeklyDue || calculated.emiAmount || 0);
+  let totalPayable = Number(customer.totalPayable || calculated.totalPayable || 0);
+  if (totalPayable <= 0 && resolvedEmi > 0 && resolvedWeeks > 0) {
+    totalPayable = resolvedEmi * resolvedWeeks;
+  }
 
   return {
     ...customer,
     loanAmount: loanAmount || calculated.loanAmount,
-    loanWeeks: loanWeeks || calculated.loanWeeks || (loanAmount > 0 ? 1 : 0),
+    loanWeeks: resolvedWeeks || (loanAmount > 0 ? 1 : 0),
     weeklyDue,
-    emiAmount: Number(customer.emiAmount || weeklyDue || calculated.emiAmount || 0),
+    emiAmount: resolvedEmi,
     totalPayable,
     interestAmount: Number(customer.interestAmount || calculated.interestAmount || 0),
     disbursementDate,

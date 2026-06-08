@@ -454,6 +454,81 @@ textarea:focus {
   line-height: 1.2rem;
 }
 
+.collection-register-filters .app-input,
+.collection-register-filters .app-select,
+.collection-report-filters .app-input,
+.collection-report-filters .app-select {
+  border-color: rgb(191 219 254);
+  color: rgb(30 41 59);
+}
+
+.collection-register-filters .app-input::placeholder,
+.collection-report-filters .app-input::placeholder {
+  color: rgb(148 163 184);
+}
+
+.collection-register-filters .app-input:focus,
+.collection-register-filters .app-select:focus,
+.collection-report-filters .app-input:focus,
+.collection-report-filters .app-select:focus {
+  border-color: rgb(147 197 253);
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(219 234 254);
+}
+
+.collection-neutral-btn {
+  border: 1px solid rgb(191 219 254);
+  background: #fff;
+  color: rgb(30 41 59);
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.collection-neutral-btn:hover:not(:disabled) {
+  border-color: rgb(147 197 253);
+  background: rgb(239 246 255);
+}
+
+.collection-neutral-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.collection-view-report-btn {
+  border: 1px solid rgb(191 219 254);
+  background: #fff;
+  color: rgb(29 78 216);
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.collection-view-report-btn:hover {
+  border-color: rgb(147 197 253);
+  background: rgb(239 246 255);
+}
+
+.collection-register-toolbar,
+.collection-register-toolbar-row,
+.collection-register-toolbar-side,
+.collection-register-toolbar-actions,
+.collection-register-toolbar-period {
+  min-width: 0;
+}
+
+.collection-register-stat {
+  min-width: 0;
+}
+
+.collection-register-toolbar-btn {
+  height: 2.5rem;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+}
+
 .wallet-filter-field {
   display: flex;
   min-width: 0;

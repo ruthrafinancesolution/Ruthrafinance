@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy } from "react";
+import { Component } from "react";
 import { Navigate, Outlet, Route, Routes, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import EmployeeCreate from "../pages/EmployeeCreate";
@@ -33,9 +33,7 @@ import AdminControls from "../pages/AdminControls";
 import BackendRequirements from "../pages/BackendRequirements";
 import RouteGuard from "../components/RouteGuard";
 import EmployeeAppLayout from "../components/dashboard/EmployeeAppLayout";
-import { importCustomerCreatePageWithRetry } from "../utils/customerCreateRouteLoader";
-
-const CustomerCreatePage = lazy(importCustomerCreatePageWithRetry);
+import CustomerCreatePage from "../pages/CustomerCreatePage";
 
 function RedirectLegacyCustomerDetail() {
   const { customerId } = useParams();
@@ -143,9 +141,7 @@ export default function AppRoutes() {
           path="/dashboard/customer/new"
           element={(
             <RouteLoadErrorBoundary>
-              <Suspense fallback={<RouteLoadingScreen label="Opening customer creation..." />}>
-                <CustomerCreatePage />
-              </Suspense>
+              <CustomerCreatePage />
             </RouteLoadErrorBoundary>
           )}
         />

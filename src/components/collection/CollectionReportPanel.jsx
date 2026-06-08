@@ -622,7 +622,7 @@ export default function CollectionReportPanel() {
         />
       </div>
 
-      <div className="mt-4 space-y-3 rounded-[24px] border border-slate-200/90 bg-white p-4 shadow-sm">
+      <div className="collection-report-filters mt-4 space-y-3 rounded-[24px] border border-slate-200/90 bg-white p-4 shadow-sm">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:items-end">
           <div className="min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-1">
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -751,32 +751,32 @@ export default function CollectionReportPanel() {
             disabled={printLoading}
             onClick={handlePrint}
             title={printSelectionHint || "Print customer report grouped by sub-center"}
-            className="app-button-secondary inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            className="collection-neutral-btn inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium"
           >
-            <Printer className="h-4 w-4" />
+            <Printer className="h-4 w-4 text-slate-600" />
             {printLoading ? "Printing…" : "Print"}
           </button>
           <button
             type="button"
-            className="app-button-secondary inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium"
+            className="collection-neutral-btn inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium"
           >
-            <FileSpreadsheet className="h-4 w-4" />
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
             Export Excel
           </button>
           <button
             type="button"
-            className="app-button-secondary inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium"
+            className="collection-neutral-btn inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium"
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 text-rose-600" />
             Export PDF
           </button>
           <button
             type="button"
             disabled={!reportRows.length}
             onClick={() => downloadReportRowsCsv(reportRows)}
-            className="app-button-primary inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            className="collection-neutral-btn inline-flex h-[42px] items-center gap-2 rounded-2xl px-4 text-sm font-medium"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-4 w-4 text-emerald-600" />
             Export CSV
           </button>
         </div>

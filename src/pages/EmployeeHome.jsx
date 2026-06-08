@@ -36,19 +36,20 @@ function formatRecentWhen(entry) {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function StatTile({ icon: Icon, label, value, hint, tone = "text-slate-950" }) {
+function StatTile({ icon: Icon, label, value, tone = "text-slate-950" }) {
   return (
     <div className="app-panel-muted rounded-2xl p-3 sm:rounded-[22px] sm:p-3.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-[10px] sm:tracking-[0.2em]">{label}</p>
-          <p className={`mt-1 text-lg font-semibold leading-tight sm:text-xl ${tone}`}>{value}</p>
-          {hint ? <p className="mt-1 line-clamp-2 text-[10px] text-slate-600 sm:text-xs">{hint}</p> : null}
-        </div>
+        <p className="min-w-0 text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-[10px] sm:tracking-[0.2em]">{label}</p>
         <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/70 sm:h-10 sm:w-10">
           <Icon className="h-4 w-4 text-slate-700 sm:h-[18px] sm:w-[18px]" />
         </div>
       </div>
+      <p
+        className={`mt-2 flex min-h-[2rem] items-center justify-center text-center text-lg font-semibold leading-tight sm:min-h-[2.25rem] sm:text-xl ${tone}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -132,7 +133,7 @@ export default function EmployeeHome() {
 
   return (
     <div className="mx-auto w-full max-w-lg pb-1">
-      <header className="app-panel mb-2.5 flex items-center gap-3 rounded-2xl px-3 py-2.5 sm:mb-3 sm:px-4 sm:py-3">
+      <header className="app-panel mb-2.5 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 sm:mb-3 sm:gap-3 sm:px-4 sm:py-3">
         <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/70 sm:h-10 sm:w-10">
           <Wallet className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
         </div>
@@ -140,17 +141,14 @@ export default function EmployeeHome() {
           <p className="app-eyebrow text-[9px] font-semibold uppercase tracking-[0.2em] sm:text-[10px]">Home</p>
           <h1 className="text-base font-semibold leading-tight text-slate-950 sm:text-lg">Today at a glance</h1>
         </div>
-      </header>
-
-      <div className="mb-2">
         <Link
           to="/employee/loan-request"
-          className="app-button-primary inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
+          className="app-button-primary inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[11px] font-semibold sm:gap-2 sm:rounded-2xl sm:px-3.5 sm:py-2.5 sm:text-xs"
         >
-          <FilePlus2 className="h-4 w-4" />
-          New loan request
+          <FilePlus2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="whitespace-nowrap">New loan request</span>
         </Link>
-      </div>
+      </header>
 
       {hasAssignedCenter ? (
         <p className="mb-2 rounded-2xl border border-blue-100 bg-blue-50/80 px-3 py-2 text-xs text-blue-900">
@@ -167,26 +165,22 @@ export default function EmployeeHome() {
           icon={UsersRound}
           label="Assigned customers"
           value={loading ? "…" : String(metrics.scopedCount)}
-          hint="Customers in your assigned centres"
         />
         <StatTile
           icon={IndianRupee}
           label="Today's collection"
           value={loading ? "…" : formatCurrency(metrics.todayCollected)}
-          hint="Your approved collections today"
         />
         <StatTile
           icon={Clock3}
           label="Pending customers"
           value={loading ? "…" : String(metrics.pendingCollection)}
-          hint="Due today without collection"
           tone="text-amber-700"
         />
         <StatTile
           icon={CheckCircle2}
           label="Total collected"
           value={loading ? "…" : formatCurrency(metrics.totalCollected)}
-          hint="Your approved collections"
         />
       </div>
 
@@ -199,7 +193,6 @@ export default function EmployeeHome() {
             <h2 id="recent-paid-heading" className="text-sm font-semibold text-slate-950">
               Recently paid
             </h2>
-            <p className="text-[11px] leading-snug text-slate-600">Approved collections on your centres (newest first)</p>
           </div>
         </div>
 
@@ -207,7 +200,7 @@ export default function EmployeeHome() {
           <p className="py-4 text-center text-sm text-slate-500">Loading…</p>
         ) : recentPaid.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-200/90 bg-white/50 px-3 py-4 text-center text-sm text-slate-600">
-            No recent payments yet. When dues are collected and approved, they will show here.
+            No recent payments yet.
           </p>
         ) : (
           <ul className="flex flex-col divide-y divide-slate-200/60">

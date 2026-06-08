@@ -37,6 +37,7 @@ import { normalizeCollectionFrequency as normalizeFrequency } from "../utils/loa
 
 const FREQUENCY_OPTIONS = ["All", "Daily", "Weekly", "Monthly"];
 const STATUS_OPTIONS = ["All", "Collected", "Partial Payment", "Skipped", "Rescheduled", "Pending"];
+const PERIOD_OPTIONS = ["All", "Today", "This Week", "This Month"];
 
 const EXPORT_COLUMNS = [
   { key: "customerName", label: "Customer Name" },
@@ -111,18 +112,46 @@ function isSameCalendarDay(a, b = new Date()) {
   return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
 }
 
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function startOfWeekMonday(date) {
+  const d = startOfDay(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function rowMatchesPeriodFilter(row, periodFilter) {
+  if (periodFilter === "All") return true;
+  const collectedOn = parseGbDate(row.collectionDate);
+  if (!collectedOn) return false;
+  const today = startOfDay(new Date());
+  const collected = startOfDay(collectedOn);
+  if (periodFilter === "Today") return isSameCalendarDay(collected, today);
+  if (periodFilter === "This Week") {
+    const weekStart = startOfWeekMonday(today);
+    return collected >= weekStart && collected <= today;
+  }
+  if (periodFilter === "This Month") {
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    return collected >= monthStart && collected <= today;
+  }
+  return true;
+}
+
 function CollectionStats({ label, value, icon: Icon }) {
   return (
-    <div className="app-panel-muted rounded-[26px] p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-        </div>
-        <div className="app-icon-shell flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70">
-          <Icon className="h-5 w-5" />
+    <div className="collection-register-stat app-panel-muted flex min-h-[4.75rem] min-w-0 flex-col justify-between rounded-2xl px-3.5 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-slate-500">{label}</p>
+        <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/70">
+          <Icon className="h-4 w-4" />
         </div>
       </div>
+      <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
@@ -142,6 +171,7 @@ export default function Collection() {
   const [actionError, setActionError] = useState("");
   const [frequencyFilter, setFrequencyFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [periodFilter, setPeriodFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [savingId, setSavingId] = useState("");
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -191,15 +221,16 @@ export default function Collection() {
     return collectionRows.filter((row) => {
       const matchesFrequency = frequencyFilter === "All" || row.collectionFrequency === frequencyFilter;
       const matchesStatus = statusFilter === "All" || row.collectionStatus === statusFilter;
+      const matchesPeriod = rowMatchesPeriodFilter(row, periodFilter);
       const matchesSearch =
         !query ||
         row.customerName.toLowerCase().includes(query) ||
         row.customerId.toLowerCase().includes(query) ||
         row.center.toLowerCase().includes(query) ||
         row.collectorName.toLowerCase().includes(query);
-      return matchesFrequency && matchesStatus && matchesSearch;
+      return matchesFrequency && matchesStatus && matchesPeriod && matchesSearch;
     });
-  }, [collectionRows, frequencyFilter, search, statusFilter]);
+  }, [collectionRows, frequencyFilter, periodFilter, search, statusFilter]);
 
   const totals = useMemo(() => {
     const approvalOf = (row) => String(row.approvalStatus || "pending").toLowerCase();
@@ -284,6 +315,7 @@ export default function Collection() {
       filterLines: [
         `Frequency: ${frequencyFilter}`,
         `Status: ${statusFilter}`,
+        `Period: ${periodFilter}`,
         ...(search.trim() ? [`Search: "${search.trim()}"`] : []),
       ],
       summaryCards: [
@@ -297,7 +329,7 @@ export default function Collection() {
       rows: filteredRows,
       reportMeta: collectionReportMeta,
     }),
-    [collectionReportMeta, exportTitle, filteredRows, frequencyFilter, recoveryPct, search, statusFilter, totals]
+    [collectionReportMeta, exportTitle, filteredRows, frequencyFilter, periodFilter, recoveryPct, search, statusFilter, totals]
   );
 
   const collectionPreviewColumns = useMemo(
@@ -483,30 +515,99 @@ export default function Collection() {
           <CollectionReportPanel />
         ) : (
           <section className="app-panel min-w-0 p-5 md:p-6">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <CollectionStats
-                icon={Wallet}
-                label="Total collected"
-                value={formatCurrency(totals.totalCollected)}
-              />
-              <CollectionStats
-                icon={ClipboardList}
-                label="Collection records"
-                value={String(totals.records)}
-              />
-              <CollectionStats
-                icon={FileText}
-                label="Outstanding total"
-                value={formatCurrency(totals.totalOutstanding)}
-              />
-              <CollectionStats
-                icon={Download}
-                label="Approved customers"
-                value={String(totals.approvedPaymentCustomerIds.size)}
-              />
+            <div className="collection-register-toolbar flex flex-col gap-2">
+              <div className="collection-register-toolbar-row flex min-w-0 flex-wrap items-start gap-2.5 lg:flex-nowrap lg:gap-3">
+                <div className="grid min-w-0 w-full grid-cols-2 gap-2.5 sm:grid-cols-4 lg:min-w-0 lg:flex-1">
+                  <CollectionStats
+                    icon={Wallet}
+                    label="Total collected"
+                    value={formatCurrency(totals.totalCollected)}
+                  />
+                  <CollectionStats
+                    icon={ClipboardList}
+                    label="Collection records"
+                    value={String(totals.records)}
+                  />
+                  <CollectionStats
+                    icon={FileText}
+                    label="Outstanding total"
+                    value={formatCurrency(totals.totalOutstanding)}
+                  />
+                  <CollectionStats
+                    icon={Download}
+                    label="Approved customers"
+                    value={String(totals.approvedPaymentCustomerIds.size)}
+                  />
+                </div>
+                <div className="collection-register-toolbar-side flex w-full min-w-0 flex-col gap-2 lg:w-auto lg:shrink-0 lg:border-l lg:border-slate-200/80 lg:pl-3">
+                  <div className="collection-register-toolbar-actions flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCollectionPreviewOpen(true)}
+                      className="collection-view-report-btn collection-register-toolbar-btn group inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold"
+                    >
+                      <Eye className="h-3.5 w-3.5 shrink-0 text-blue-600 transition group-hover:scale-105" aria-hidden />
+                      View Report
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadFile(makeCsv(filteredRows), `collection-register-${reportDateStamp()}.csv`, "text/csv;charset=utf-8;")}
+                      className="collection-neutral-btn collection-register-toolbar-btn inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-medium"
+                    >
+                      <Download className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      disabled={collectionExcelExportLoading}
+                      onClick={handleCollectionPreviewExcel}
+                      className="collection-neutral-btn collection-register-toolbar-btn inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-medium"
+                    >
+                      {collectionExcelExportLoading ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+                          Excel…
+                        </span>
+                      ) : (
+                        <>
+                          <FileSpreadsheet className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                          Excel
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={collectionPdfExportLoading}
+                      onClick={() => {
+                        setCollectionPreviewOpen(true);
+                      }}
+                      className="collection-neutral-btn collection-register-toolbar-btn inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-medium"
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-rose-600" />
+                      Report & PDF
+                    </button>
+                  </div>
+                  <div className="collection-register-toolbar-period flex flex-wrap items-center gap-2">
+                    {PERIOD_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setPeriodFilter(option)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                          periodFilter === option
+                            ? "bg-slate-900 text-white shadow-sm"
+                            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
+            <div className="collection-register-filters mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -536,54 +637,6 @@ export default function Collection() {
                   </option>
                 ))}
               </select>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCollectionPreviewOpen(true)}
-                  className="group inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/70 hover:text-blue-900"
-                >
-                  <Eye className="h-4 w-4 shrink-0 text-blue-600 transition group-hover:scale-105" aria-hidden />
-                  View Report
-                </button>
-                <button
-                  type="button"
-                  disabled={collectionExcelExportLoading}
-                  onClick={handleCollectionPreviewExcel}
-                  className="app-button-secondary inline-flex items-center gap-2 rounded-2xl border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
-                >
-                  {collectionExcelExportLoading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
-                      Excel…
-                    </span>
-                  ) : (
-                    <>
-                      <FileSpreadsheet className="h-4 w-4" />
-                      Excel
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => downloadFile(makeCsv(filteredRows), `collection-register-${reportDateStamp()}.csv`, "text/csv;charset=utf-8;")}
-                  className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Download className="h-4 w-4" />
-                  CSV
-                </button>
-                <button
-                  type="button"
-                  disabled={collectionPdfExportLoading}
-                  onClick={() => {
-                    setCollectionPreviewOpen(true);
-                  }}
-                  className="app-button-secondary inline-flex items-center gap-2 rounded-2xl border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
-                >
-                  <FileText className="h-4 w-4" />
-                  Report & PDF
-                </button>
-              </div>
             </div>
 
             {error ? <div className="app-alert-error mt-5">{error}</div> : null}

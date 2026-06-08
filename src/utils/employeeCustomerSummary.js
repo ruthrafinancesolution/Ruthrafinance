@@ -1,5 +1,10 @@
 import { NO_CENTER_LABEL, NO_SUB_CENTER_LABEL, resolveCustomerCenterDisplay } from "./centerDisplay.js";
-import { buildCustomerDetailRow } from "./employeeCollectionDetails.js";
+import {
+  buildCustomerDetailRow,
+  getCurrentTenureCollectionStatus,
+  getCurrentTenureListDisplay,
+  isCurrentTenureCollected,
+} from "./employeeCollectionDetails.js";
 
 export function getEmployeeCustomerCenterLabel(customer, allCenters = []) {
   const { dayCenter, subCenter } = resolveCustomerCenterDisplay(customer, allCenters);
@@ -39,16 +44,23 @@ export function getEmployeeCustomerSearchText(customer, summary, allCenters = []
 export function buildEmployeeCustomerSummary(customer, customerEntries = [], allCenters = []) {
   const detail = buildCustomerDetailRow(customer, customerEntries);
   const centerLabel = getEmployeeCustomerCenterLabel(customer, allCenters);
+  const listDisplay = getCurrentTenureListDisplay(customer, customerEntries);
   return {
     customerId: detail.customerId || "—",
     customerName: detail.customerName || "—",
     phoneNumber: detail.phoneNumber || "—",
     centerLabel,
     placeLabel: getEmployeeCustomerPlaceLabel(customer, allCenters),
-    currentDueAmount: detail.currentTenureAmount || "—",
+    currentDueAmount: listDisplay.dueAmountDisplay,
     pendingTenuresLabel: detail.pendingTenuresLabel || "—",
     loanDate: detail.loanDate || "—",
-    currentTenure: detail.currentTenure || "—",
+    currentDueDate: listDisplay.dueDateDisplay,
+    currentTenure: listDisplay.tenureDisplay,
+    dueStatusLabel: listDisplay.statusLabel,
+    dueStatusEmoji: listDisplay.statusEmoji,
+    dueStatusKey: listDisplay.statusKey,
+    collectionStatus: getCurrentTenureCollectionStatus(customer, customerEntries),
+    isCurrentTenureCollected: isCurrentTenureCollected(customer, customerEntries),
   };
 }
 

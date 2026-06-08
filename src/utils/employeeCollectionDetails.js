@@ -213,6 +213,99 @@ export function computeTenureBreakdown(customer, customerEntries) {
   };
 }
 
+const EMPLOYEE_COLLECTION_STATUS_VALUES = ["Collected", "Partial Payment", "Skipped", "Rescheduled", "Pending"];
+
+export function normalizeEmployeeCollectionStatus(value) {
+  const status = String(value || "").trim();
+  if (status === "Partially paid") return "Partial Payment";
+  if (EMPLOYEE_COLLECTION_STATUS_VALUES.includes(status)) return status;
+  return "Pending";
+}
+
+export function isCurrentTenureCollected(customer, customerEntries) {
+  return getCurrentTenureCollectionStatus(customer, customerEntries) === "Collected";
+}
+
+export function getCurrentTenureCollectionStatus(customer, customerEntries) {
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const currentNumber = tenure.currentTenureNumber || 0;
+  if (!currentNumber) return "Pending";
+
+  const sortedEntries = [...customerEntries].sort((a, b) =>
+    String(a.collectionDate || a.submittedAt || "").localeCompare(String(b.collectionDate || b.submittedAt || ""))
+  );
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === currentNumber);
+
+  const installmentEntry = sortedEntries[currentNumber - 1] || null;
+  if (installmentEntry?.collectionStatus) {
+    return normalizeEmployeeCollectionStatus(installmentEntry.collectionStatus);
+  }
+
+  const latestEntry = sortedEntries[sortedEntries.length - 1] || null;
+  if (latestEntry?.collectionStatus && currentItem) {
+    const entryDay = safeDate(latestEntry.collectionDate || latestEntry.submittedAt);
+    const dueDay = startOfDay(currentItem.dueDate);
+    if (entryDay && startOfDay(entryDay) >= dueDay) {
+      return normalizeEmployeeCollectionStatus(latestEntry.collectionStatus);
+    }
+  }
+
+  if (!currentItem) return "Pending";
+  if (isInstallmentPaid(currentItem)) return "Collected";
+  if (Number(currentItem.paidAmount || 0) > 0) return "Partial Payment";
+  return "Pending";
+}
+
+export function getCurrentTenurePaymentStatus(customer, customerEntries) {
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
+  if (!currentItem) return "Pending";
+  if (isInstallmentPaid(currentItem)) return "Paid";
+  if (Number(currentItem.paidAmount || 0) > 0) return "Partially paid";
+  return "Pending";
+}
+
+export function getCurrentTenureDueStatus(customer, customerEntries) {
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
+  if (!currentItem || isInstallmentPaid(currentItem)) {
+    return { label: "On Time", emoji: "🟢", key: "on-time" };
+  }
+
+  const today = startOfDay(new Date());
+  const dueDay = startOfDay(currentItem.dueDate);
+  if (dueDay < today) {
+    return { label: "Overdue", emoji: "🔴", key: "overdue" };
+  }
+  if (dueDay.getTime() === today.getTime()) {
+    return { label: "Due Today", emoji: "🟡", key: "due-today" };
+  }
+  return { label: "On Time", emoji: "🟢", key: "on-time" };
+}
+
+export function getCurrentTenureListDisplay(customer, customerEntries) {
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
+  const dueStatus = getCurrentTenureDueStatus(customer, customerEntries);
+  const dueAmount = currentItem ? Math.max(Number(currentItem.pendingAmount ?? currentItem.dueAmount ?? 0), 0) : 0;
+
+  return {
+    dueAmountDisplay: dueAmount > 0 ? `₹${dueAmount.toLocaleString("en-IN")}` : "—",
+    dueDateDisplay: currentItem?.dueDate ? formatDate(currentItem.dueDate) : "—",
+    tenureDisplay:
+      tenure.currentTenure && tenure.currentTenure !== "--"
+        ? tenure.currentTenure.charAt(0).toUpperCase() + tenure.currentTenure.slice(1)
+        : "—",
+    statusLabel: dueStatus.label,
+    statusEmoji: dueStatus.emoji,
+    statusKey: dueStatus.key,
+  };
+}
+
 export function buildCustomerDetailRow(customer, customerEntries) {
   const frequency = normalizeCollectionFrequency(customer.collectionFrequency);
   const details = computeCustomerCollectionDetails(customer, customerEntries);

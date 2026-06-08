@@ -46,10 +46,8 @@ export default function PremiumKpiCard({
   icon: Icon,
   label,
   amount,
-  sub,
   accent = "slate",
   amountTone = "neutral",
-  healthLine,
   trendUp,
 }) {
   const target = Math.round(Number(amount) || 0);
@@ -120,12 +118,6 @@ export default function PremiumKpiCard({
           <p className={`mt-0.5 font-mono text-[1.28rem] font-bold leading-none tracking-tight sm:text-xl md:text-[1.55rem] ${toneCls}`}>
             {value}
           </p>
-          {sub ? <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-slate-600 sm:text-[11px]">{sub}</p> : null}
-          {healthLine ? (
-            <p className="mt-1.5 truncate rounded-lg bg-slate-900/[0.04] px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-slate-200/50">
-              {healthLine}
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

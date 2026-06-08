@@ -778,31 +778,26 @@ function computeReports(rangeBounds, customers, entries, centers) {
   };
 }
 
-function ReportCard({ icon: Icon, label, value, note }) {
+function ReportCard({ icon: Icon, label, value }) {
   const valueText = String(value ?? "");
   const amountClass =
     valueText.length >= 13
-      ? "text-[clamp(0.95rem,1vw,1.12rem)]"
+      ? "text-base"
       : valueText.length >= 10
-        ? "text-[clamp(1.05rem,1.2vw,1.3rem)]"
-        : "text-[clamp(1.32rem,1.7vw,1.82rem)]";
+        ? "text-lg"
+        : "text-xl";
 
   return (
-    <div className="app-panel-muted h-full min-w-0 rounded-[28px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,248,255,0.96))] p-4 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.2)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_-28px_rgba(37,99,235,0.22)] sm:p-[1.125rem]">
-      <div className="flex h-full flex-col gap-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">{label}</p>
-          <div className="app-icon-shell flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/80 shadow-sm">
-            <Icon className="h-[1.125rem] w-[1.125rem]" />
-          </div>
-        </div>
-        <div className="min-w-0">
-          <p className={`min-w-0 overflow-hidden whitespace-nowrap text-ellipsis font-bold leading-none tracking-[-0.03em] text-slate-950 tabular-nums ${amountClass}`}>
-            {valueText}
-          </p>
-          {note ? <p className="app-truncate-2 mt-2 text-xs leading-5 text-slate-500 sm:text-[13px]">{note}</p> : null}
+    <div className="app-panel-muted min-w-0 rounded-2xl border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,248,255,0.96))] px-3 py-2.5 shadow-[0_12px_24px_-20px_rgba(15,23,42,0.18)] sm:px-3.5 sm:py-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+        <div className="app-icon-shell flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/80">
+          <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
+      <p className={`mt-1.5 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis font-bold leading-tight tracking-tight text-slate-950 tabular-nums ${amountClass}`}>
+        {valueText}
+      </p>
     </div>
   );
 }
@@ -1522,14 +1517,6 @@ export default function Reports() {
   return (
     <AdminLayout title="Reports" description="">
       <div className="app-grid-page grid gap-5 lg:gap-6">
-        <div className="app-panel-muted flex items-center gap-4 rounded-[28px] p-5 md:p-6">
-          <BrandLogo variant="md" className="shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Ruthra</p>
-            <p className="mt-1 text-lg font-semibold text-slate-950">Reports & portfolio view</p>
-          </div>
-        </div>
-
         {loading ? (
           <div className="app-panel flex items-center gap-3 rounded-[28px] px-5 py-4 text-sm text-slate-600">
             <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -1551,20 +1538,16 @@ export default function Reports() {
                 Data synced successfully · {customers.filter((c) => !c.isArchived && !c.isDeleted).length} active customers · live Firestore
               </span>
             </div>
-            <section className="app-panel space-y-5 p-5 sm:p-6 xl:p-7">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">Summary</h3>
-                  <p className="mt-1 text-sm text-slate-500">{report.periodLabel}</p>
-                </div>
+            <section className="app-panel min-w-0 space-y-5 p-5 sm:p-6 xl:p-7">
+              <div className="flex min-w-0 flex-col items-end gap-3">
                 <div className="flex w-full min-w-0 flex-col gap-3 xl:max-w-[980px] xl:items-end">
-                  <div className="grid w-full gap-2 rounded-[24px] border border-slate-200/85 bg-white/90 p-2 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.18)] ring-1 ring-slate-900/5 sm:grid-cols-4 xl:grid-cols-8">
+                  <div className="flex w-full min-w-0 flex-wrap gap-2 rounded-[24px] border border-slate-200/85 bg-white/90 p-2 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.18)] ring-1 ring-slate-900/5">
                     {RANGE_PRESETS.map((p) => (
                       <button
                         key={p.key}
                         type="button"
                         onClick={() => selectRangePreset(p.key)}
-                        className={`inline-flex min-h-[44px] items-center justify-center rounded-2xl px-3 py-2 text-center text-xs font-semibold transition sm:px-3.5 sm:text-sm ${
+                        className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-2xl px-3 py-2 text-center text-xs font-semibold transition sm:px-3.5 sm:text-sm ${
                           rangePreset === p.key
                             ? "bg-blue-600 text-white shadow-[0_12px_24px_-16px_rgba(37,99,235,0.75)]"
                             : "border border-transparent bg-white/70 text-slate-600 hover:border-blue-100 hover:bg-blue-50/80 hover:text-blue-900"
@@ -1576,7 +1559,7 @@ export default function Reports() {
                     <button
                       type="button"
                       onClick={() => selectRangePreset("custom")}
-                        className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-center text-xs font-semibold transition sm:px-3.5 sm:text-sm ${
+                        className={`inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-center text-xs font-semibold transition sm:px-3.5 sm:text-sm ${
                         rangePreset === "custom"
                             ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_12px_24px_-16px_rgba(37,99,235,0.75)]"
                             : "border border-transparent bg-white/70 text-slate-600 hover:border-blue-100 hover:bg-blue-50/80 hover:text-blue-900"
@@ -1627,15 +1610,15 @@ export default function Reports() {
                   </div>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+              <div className="grid min-w-0 gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
                 {collectionPreviewMetrics.map((m) => (
-                  <ReportCard key={m.label} icon={m.icon} label={m.label} value={m.value} note={m.note} />
+                  <ReportCard key={m.label} icon={m.icon} label={m.label} value={m.value} />
                 ))}
               </div>
             </section>
 
-            <section className="app-panel space-y-5 p-5 sm:p-6 xl:p-7">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <section className="app-panel min-w-0 space-y-5 p-5 sm:p-6 xl:p-7">
+              <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <h3 className="text-base font-semibold text-slate-900">Customer details</h3>
                 <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
                   <button
@@ -1748,7 +1731,7 @@ export default function Reports() {
                 </select>
               </div>
 
-              <div className="app-table-wrap overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_18px_34px_-30px_rgba(15,23,42,0.16)]">
+              <div className="app-table-wrap min-w-0 overflow-x-auto rounded-[24px] border border-slate-200/80 bg-white shadow-[0_18px_34px_-30px_rgba(15,23,42,0.16)]">
                 <table className="app-table text-left">
                   <thead className="bg-slate-50/95 backdrop-blur-sm">
                     <tr>
