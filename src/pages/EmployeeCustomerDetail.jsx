@@ -143,7 +143,7 @@ export default function EmployeeCustomerDetail() {
             <ArrowLeft className="h-4 w-4 shrink-0" />
             Back to My Customers
           </button>
-          {customer && summary && !summary.isCurrentTenureCollected ? (
+          {customer && summary && !summary.isCurrentTenureCollected && !summary.hasPendingApproval ? (
             <button
               type="button"
               onClick={() => setCollectModalOpen(true)}

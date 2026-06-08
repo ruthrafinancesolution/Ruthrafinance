@@ -151,6 +151,7 @@ export default function EmployeeCustomerEntryPage() {
           const customerEntries = entriesByCustomerId.get(customer.customerId) || [];
           const summary = buildEmployeeCustomerSummary(customer, customerEntries, allCenters);
           const collected = summary.isCurrentTenureCollected;
+          const awaitingApproval = summary.hasPendingApproval;
           return (
             <li key={customer.customerId}>
               <div className="employee-list-card app-panel-muted items-center">
@@ -167,7 +168,15 @@ export default function EmployeeCustomerEntryPage() {
                     valueClassName="tabular-nums text-slate-950"
                   />
                   <div className="min-w-0 shrink-0 self-end pb-0.5">
-                    {!collected ? (
+                    {collected ? (
+                      <span className="inline-flex h-7 items-center justify-center rounded-full bg-emerald-100 px-2.5 text-[10px] font-semibold leading-none text-emerald-800 sm:px-3 sm:text-[11px]">
+                        Collected
+                      </span>
+                    ) : awaitingApproval ? (
+                      <span className="inline-flex h-7 items-center justify-center rounded-full bg-amber-100 px-2.5 text-[10px] font-semibold leading-none text-amber-800 sm:px-3 sm:text-[11px]">
+                        Pending
+                      </span>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => setEntryCustomer(customer)}
@@ -175,8 +184,6 @@ export default function EmployeeCustomerEntryPage() {
                       >
                         Collect now
                       </button>
-                    ) : (
-                      <span className="inline-block h-6 sm:h-7" aria-hidden />
                     )}
                   </div>
                 </div>

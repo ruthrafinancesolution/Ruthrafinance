@@ -28,12 +28,21 @@ function CustomerListField({ label, value, valueClassName = "text-slate-950" }) 
   );
 }
 
-function CustomerStatusField({ emoji, label, collected }) {
+function CustomerStatusField({ emoji, label, collected, awaitingApproval }) {
   if (collected) {
     return (
       <div className="min-w-0 shrink-0">
         <p className="employee-field-label">Status</p>
         <p className="employee-field-value text-emerald-700">Collected</p>
+      </div>
+    );
+  }
+
+  if (awaitingApproval) {
+    return (
+      <div className="min-w-0 shrink-0">
+        <p className="employee-field-label">Status</p>
+        <p className="employee-field-value text-amber-700">Pending</p>
       </div>
     );
   }
@@ -179,6 +188,7 @@ export default function EmployeeCustomersList() {
                 emoji={row.dueStatusEmoji}
                 label={row.dueStatusLabel}
                 collected={row.isCurrentTenureCollected}
+                awaitingApproval={row.hasPendingApproval}
               />
               <button
                 type="button"

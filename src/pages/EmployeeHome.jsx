@@ -191,7 +191,7 @@ export default function EmployeeHome() {
           </div>
           <div className="min-w-0">
             <h2 id="recent-paid-heading" className="text-sm font-semibold text-slate-950">
-              Recently paid
+              Recent collection
             </h2>
           </div>
         </div>

@@ -79,7 +79,6 @@ export default function EmployeeCustomerEntryModal({
               <DollarSign className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.28em] text-blue-600">Customer Entry</p>
               <h3 id="customer-entry-modal-title" className="truncate text-lg font-semibold text-slate-900">
                 {customer?.customerName}
               </h3>

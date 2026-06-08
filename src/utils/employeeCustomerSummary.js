@@ -1,8 +1,11 @@
 import { NO_CENTER_LABEL, NO_SUB_CENTER_LABEL, resolveCustomerCenterDisplay } from "./centerDisplay.js";
 import {
   buildCustomerDetailRow,
+  getCurrentTenureCollectedAmount,
+  getCurrentTenureCollectedDisplay,
   getCurrentTenureCollectionStatus,
   getCurrentTenureListDisplay,
+  hasCurrentTenurePendingApproval,
   isCurrentTenureCollected,
 } from "./employeeCollectionDetails.js";
 
@@ -62,6 +65,9 @@ export function buildEmployeeCustomerSummary(customer, customerEntries = [], all
     dueStatusKey: listDisplay.statusKey,
     collectionStatus: getCurrentTenureCollectionStatus(customer, customerEntries),
     isCurrentTenureCollected: isCurrentTenureCollected(customer, customerEntries),
+    hasPendingApproval: hasCurrentTenurePendingApproval(customer, customerEntries),
+    currentTenureCollectedAmount: getCurrentTenureCollectedAmount(customer, customerEntries),
+    currentTenureCollectedDisplay: getCurrentTenureCollectedDisplay(customer, customerEntries),
   };
 }
 

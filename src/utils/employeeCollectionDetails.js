@@ -222,8 +222,59 @@ export function normalizeEmployeeCollectionStatus(value) {
   return "Pending";
 }
 
+function formatRupeeAmount(amount) {
+  const value = Number(amount || 0);
+  return value > 0 ? `₹${value.toLocaleString("en-IN")}` : "—";
+}
+
+function isEntryPendingApproval(entry) {
+  const status = String(entry?.approvalStatus || "pending").toLowerCase();
+  return status !== "approved" && status !== "rejected";
+}
+
+export function getCurrentTenurePendingApprovalEntry(customer, customerEntries) {
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const currentNumber = tenure.currentTenureNumber || 0;
+  if (!currentNumber) return null;
+
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === currentNumber);
+  if (!currentItem || isInstallmentPaid(currentItem)) return null;
+
+  const pendingEntries = [...customerEntries]
+    .filter((entry) => isEntryPendingApproval(entry))
+    .sort((left, right) =>
+      String(right.submittedAt || right.collectionDate || "").localeCompare(
+        String(left.submittedAt || left.collectionDate || "")
+      )
+    );
+
+  return pendingEntries[0] || null;
+}
+
+export function hasCurrentTenurePendingApproval(customer, customerEntries) {
+  return Boolean(getCurrentTenurePendingApprovalEntry(customer, customerEntries));
+}
+
+export function getCurrentTenureCollectedAmount(customer, customerEntries) {
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
+  return currentItem ? Number(currentItem.paidAmount || 0) : 0;
+}
+
+export function getCurrentTenureCollectedDisplay(customer, customerEntries) {
+  const approvedAmount = getCurrentTenureCollectedAmount(customer, customerEntries);
+  if (approvedAmount > 0) return formatRupeeAmount(approvedAmount);
+  if (hasCurrentTenurePendingApproval(customer, customerEntries)) return "Pending";
+  return "—";
+}
+
 export function isCurrentTenureCollected(customer, customerEntries) {
-  return getCurrentTenureCollectionStatus(customer, customerEntries) === "Collected";
+  const tenure = computeTenureBreakdown(customer, customerEntries);
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
+  return currentItem ? isInstallmentPaid(currentItem) : false;
 }
 
 export function getCurrentTenureCollectionStatus(customer, customerEntries) {
@@ -231,29 +282,15 @@ export function getCurrentTenureCollectionStatus(customer, customerEntries) {
   const currentNumber = tenure.currentTenureNumber || 0;
   if (!currentNumber) return "Pending";
 
-  const sortedEntries = [...customerEntries].sort((a, b) =>
-    String(a.collectionDate || a.submittedAt || "").localeCompare(String(b.collectionDate || b.submittedAt || ""))
-  );
   const schedule = buildInstallmentSchedule(customer, customerEntries);
   const currentItem = schedule.find((item) => item.installmentNumber === currentNumber);
-
-  const installmentEntry = sortedEntries[currentNumber - 1] || null;
-  if (installmentEntry?.collectionStatus) {
-    return normalizeEmployeeCollectionStatus(installmentEntry.collectionStatus);
-  }
-
-  const latestEntry = sortedEntries[sortedEntries.length - 1] || null;
-  if (latestEntry?.collectionStatus && currentItem) {
-    const entryDay = safeDate(latestEntry.collectionDate || latestEntry.submittedAt);
-    const dueDay = startOfDay(currentItem.dueDate);
-    if (entryDay && startOfDay(entryDay) >= dueDay) {
-      return normalizeEmployeeCollectionStatus(latestEntry.collectionStatus);
-    }
-  }
-
   if (!currentItem) return "Pending";
   if (isInstallmentPaid(currentItem)) return "Collected";
   if (Number(currentItem.paidAmount || 0) > 0) return "Partial Payment";
+
+  const pendingEntry = getCurrentTenurePendingApprovalEntry(customer, customerEntries);
+  if (pendingEntry) return normalizeEmployeeCollectionStatus(pendingEntry.collectionStatus);
+
   return "Pending";
 }
 
