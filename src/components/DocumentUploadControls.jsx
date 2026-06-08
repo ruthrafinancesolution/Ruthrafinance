@@ -199,12 +199,15 @@ export function DocumentPhotoTile({
   onPick,
   onClear,
   capture = "user",
+  accept = ".jpg,.jpeg,.png,.webp,image/*",
   disabled = false,
   className = "",
   required = false,
   invalid = false,
   helperText = "",
   dense = false,
+  size = "md",
+  previewAspect = "square",
 }) {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -239,15 +242,24 @@ export function DocumentPhotoTile({
     handleUpload(event.dataTransfer.files?.[0]);
   };
 
-  const actionBtn = dense
-    ? "inline-flex !min-h-0 aspect-square h-9 w-full min-w-0 items-center justify-center rounded-lg border p-0 shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-    : "inline-flex !min-h-0 h-10 w-full items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold leading-none shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
+  const isSmall = dense && size === "sm";
+  const actionBtn = isSmall
+    ? "inline-flex !min-h-0 aspect-square h-7 w-full min-w-0 items-center justify-center rounded-md border p-0 shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+    : dense
+      ? "inline-flex !min-h-0 aspect-square h-9 w-full min-w-0 items-center justify-center rounded-lg border p-0 shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+      : "inline-flex !min-h-0 h-10 w-full items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold leading-none shadow-sm transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
+
+  const shellSizeClass = isSmall
+    ? "max-w-[5.25rem] p-1.5"
+    : dense
+      ? "max-w-[112px] p-2"
+      : "max-w-[184px] p-3.5";
+
+  const previewAspectClass = previewAspect === "portrait" ? "aspect-[3/4]" : "aspect-square";
 
   return (
     <div
-      className={`mx-auto flex w-full shrink-0 flex-col items-center rounded-2xl border bg-white shadow-md shadow-slate-900/5 ring-1 transition ${
-        dense ? "max-w-[112px] p-2" : "max-w-[184px] p-3.5"
-      } ${
+      className={`mx-auto flex w-full shrink-0 flex-col items-center rounded-2xl border bg-white shadow-md shadow-slate-900/5 ring-1 transition ${shellSizeClass} ${
         invalid ? "border-rose-400 bg-rose-50/40 ring-rose-100/90" : "border-slate-200/90 ring-slate-100/90"
       } ${className}`}
     >
@@ -274,7 +286,7 @@ export function DocumentPhotoTile({
         onDrop={handleDrop}
       >
         <div
-          className={`aspect-square w-full overflow-hidden rounded-xl border bg-gradient-to-br shadow-inner ring-1 transition ${
+          className={`${previewAspectClass} w-full overflow-hidden rounded-xl border bg-gradient-to-br shadow-inner ring-1 transition ${
             invalid
               ? "border-rose-300 from-rose-50 via-white to-rose-50/70 ring-rose-100/80"
               : isDragging
@@ -290,8 +302,16 @@ export function DocumentPhotoTile({
                 className="h-full w-full object-cover object-center"
                 onError={() => setPreviewLoadFailed(true)}
               />
+            ) : previewAspect === "portrait" ? (
+              <UserRound
+                className={`text-slate-300/90 ${isSmall ? "h-5 w-5" : dense ? "h-6 w-6" : "h-10 w-10"}`}
+                strokeWidth={1.5}
+              />
             ) : (
-              <UserRound className={`text-slate-300/90 ${dense ? "h-6 w-6" : "h-10 w-10"}`} strokeWidth={1.5} />
+              <FileImage
+                className={`text-slate-300/90 ${isSmall ? "h-5 w-5" : dense ? "h-6 w-6" : "h-10 w-10"}`}
+                strokeWidth={1.5}
+              />
             )}
           </div>
         </div>
@@ -336,7 +356,7 @@ export function DocumentPhotoTile({
       <input
         ref={uploadRef}
         type="file"
-        accept=".jpg,.jpeg,.png,.webp,image/*"
+        accept={accept}
         disabled={disabled}
         onChange={(e) => {
           handleUpload(e.target.files?.[0]);

@@ -257,7 +257,7 @@ export default function ImageDetails() {
         customerMobile: formatPhone(customer.mobileNumber),
         otherMobile: formatPhone(customer.additionalContact || customer.nomineeContact),
         country: getCustomerCountry(customer) || "Pending",
-        loanAmount: customer.loanAmount ? "Rs " + formatCurrency(customer.loanAmount) : "Pending",
+        loanAmount: customer.loanAmount ? "₹" + formatCurrency(customer.loanAmount) : "Pending",
         disbursementDate: formatDate(customer.disbursementDate),
         dueDate: formatDate(customer.dueDate),
         onTime: loanStartDate,

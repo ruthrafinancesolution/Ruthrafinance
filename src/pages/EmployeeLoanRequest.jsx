@@ -9,7 +9,7 @@ import { createLoanRequest } from "../services/userAuth";
 const FREQUENCY_OPTIONS = ["Daily", "Weekly", "Monthly"];
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 export default function EmployeeLoanRequest() {

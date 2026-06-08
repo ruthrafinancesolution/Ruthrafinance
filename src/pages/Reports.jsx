@@ -42,7 +42,7 @@ import {
 } from "../utils/centerDisplay.js";
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function formatDate(value) {
@@ -778,24 +778,67 @@ function computeReports(rangeBounds, customers, entries, centers) {
   };
 }
 
-function ReportCard({ icon: Icon, label, value }) {
+const REPORT_CARD_ACCENTS = {
+  blue: {
+    card: "border-blue-200 bg-blue-50/50",
+    label: "text-blue-800/75",
+    icon: "bg-blue-100 text-blue-600",
+  },
+  green: {
+    card: "border-emerald-200 bg-emerald-50/50",
+    label: "text-emerald-800/75",
+    icon: "bg-emerald-100 text-emerald-600",
+  },
+  orange: {
+    card: "border-amber-200 bg-amber-50/50",
+    label: "text-amber-800/75",
+    icon: "bg-amber-100 text-amber-600",
+  },
+  slate: {
+    card: "border-slate-200 bg-slate-50/60",
+    label: "text-slate-600",
+    icon: "bg-slate-100 text-slate-600",
+  },
+  violet: {
+    card: "border-violet-200 bg-violet-50/50",
+    label: "text-violet-800/75",
+    icon: "bg-violet-100 text-violet-600",
+  },
+  rose: {
+    card: "border-rose-200 bg-rose-50/50",
+    label: "text-rose-800/75",
+    icon: "bg-rose-100 text-rose-600",
+  },
+  purple: {
+    card: "border-indigo-200 bg-indigo-50/50",
+    label: "text-indigo-800/75",
+    icon: "bg-indigo-100 text-indigo-600",
+  },
+};
+
+function ReportCard({ icon: Icon, label, value, accent = "blue" }) {
+  const tone = REPORT_CARD_ACCENTS[accent] || REPORT_CARD_ACCENTS.blue;
   const valueText = String(value ?? "");
   const amountClass =
     valueText.length >= 13
-      ? "text-base"
+      ? "text-sm sm:text-base"
       : valueText.length >= 10
-        ? "text-lg"
-        : "text-xl";
+        ? "text-base sm:text-lg"
+        : "text-lg sm:text-xl";
 
   return (
-    <div className="app-panel-muted min-w-0 rounded-2xl border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,248,255,0.96))] px-3 py-2.5 shadow-[0_12px_24px_-20px_rgba(15,23,42,0.18)] sm:px-3.5 sm:py-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-        <div className="app-icon-shell flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/80">
+    <div className={`min-w-0 rounded-xl border px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5 ${tone.card}`}>
+      <div className="flex items-start justify-between gap-1.5">
+        <p className={`min-w-0 text-[9px] font-semibold uppercase leading-tight tracking-[0.12em] sm:text-[10px] sm:tracking-[0.14em] ${tone.label}`}>
+          {label}
+        </p>
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-8 sm:w-8 ${tone.icon}`}>
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
-      <p className={`mt-1.5 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis font-bold leading-tight tracking-tight text-slate-950 tabular-nums ${amountClass}`}>
+      <p
+        className={`mt-1.5 min-w-0 overflow-hidden text-center whitespace-nowrap text-ellipsis font-semibold leading-tight tracking-tight text-slate-950 tabular-nums ${amountClass}`}
+      >
         {valueText}
       </p>
     </div>
@@ -1085,7 +1128,7 @@ export default function Reports() {
     setCustomToDraft(toLocalDateInputString(startOfDay(t.end)));
   }, []);
 
-  const filteredDetailRows = useMemo(() => {
+  const detailRowsScoped = useMemo(() => {
     const query = detailSearch.trim().toLowerCase();
     return report.detailRows
       .filter((row) => {
@@ -1096,18 +1139,36 @@ export default function Reports() {
         const matchesCenter = centerFilter === "All" || row.dayCenter === centerFilter;
         const matchesSub = subCenterFilter === "All" || row.subCenter === subCenterFilter;
         return matchesCenter && matchesSub;
-      })
-      .filter((row) => {
-        if (detailFilter === "all") return true;
-        const outstanding = Number(row.outstanding || 0);
-        const due = safeDate(row.dueDate);
-        const today = startOfDay(new Date());
-        if (detailFilter === "pending") return outstanding > 0;
-        if (detailFilter === "due") return due && startOfDay(due).getTime() === today.getTime();
-        if (detailFilter === "overdue") return due && startOfDay(due) < today && outstanding > 0;
-        return true;
       });
-  }, [centerFilter, detailFilter, detailSearch, report.detailRows, subCenterFilter]);
+  }, [centerFilter, detailSearch, report.detailRows, subCenterFilter]);
+
+  const detailStatusCounts = useMemo(() => {
+    const today = startOfDay(new Date());
+    let pending = 0;
+    let due = 0;
+    let overdue = 0;
+    detailRowsScoped.forEach((row) => {
+      const outstanding = Number(row.outstanding || 0);
+      const dueDate = safeDate(row.dueDate);
+      if (outstanding > 0) pending += 1;
+      if (dueDate && startOfDay(dueDate).getTime() === today.getTime()) due += 1;
+      if (dueDate && startOfDay(dueDate) < today && outstanding > 0) overdue += 1;
+    });
+    return { all: detailRowsScoped.length, pending, due, overdue };
+  }, [detailRowsScoped]);
+
+  const filteredDetailRows = useMemo(() => {
+    if (detailFilter === "all") return detailRowsScoped;
+    const today = startOfDay(new Date());
+    return detailRowsScoped.filter((row) => {
+      const outstanding = Number(row.outstanding || 0);
+      const due = safeDate(row.dueDate);
+      if (detailFilter === "pending") return outstanding > 0;
+      if (detailFilter === "due") return due && startOfDay(due).getTime() === today.getTime();
+      if (detailFilter === "overdue") return due && startOfDay(due) < today && outstanding > 0;
+      return true;
+    });
+  }, [detailFilter, detailRowsScoped]);
 
   const collectionPreviewColumns = useMemo(
     () => [
@@ -1163,32 +1224,54 @@ export default function Reports() {
 
   const collectionPreviewMetrics = useMemo(
     () => [
-      { icon: Wallet, label: "Total collected", value: formatCurrency(report.metrics.totalCollectedAmount), note: "Approved entries in range" },
-      { icon: CheckCircle2, label: "Successful", value: String(report.metrics.successfulCollections), note: "Collected status" },
+      {
+        icon: Wallet,
+        label: "Total collected",
+        value: formatCurrency(report.metrics.totalCollectedAmount),
+        note: "Approved entries in range",
+        accent: "blue",
+      },
+      {
+        icon: CheckCircle2,
+        label: "Successful",
+        value: String(report.metrics.successfulCollections),
+        note: "Collected status",
+        accent: "green",
+      },
       {
         icon: Clock3,
         label: "Pending dues",
         value: String(report.metrics.pendingCollection),
         note: report.isSingleDayRange ? "Due that day, not yet collected" : "Due in range with balance",
+        accent: "orange",
       },
-      { icon: TrendingUp, label: "Skipped", value: String(report.metrics.skippedCollections), note: "Entries marked skipped in range" },
+      {
+        icon: TrendingUp,
+        label: "Skipped",
+        value: String(report.metrics.skippedCollections),
+        note: "Entries marked skipped in range",
+        accent: "slate",
+      },
       {
         icon: Building2,
         label: "New loans",
         value: String(report.metrics.newLoansInRangeCount),
         note: `${formatCurrency(report.metrics.newLoansInRangeAmount)} booked in range`,
+        accent: "violet",
       },
       {
         icon: CircleDollarSign,
         label: "Outstanding",
         value: formatCurrency(report.metrics.currentTotalOutstanding),
         note: "Current open book (all active)",
+        accent: "rose",
       },
       {
         icon: BarChart3,
         label: "Net (approx.)",
         value: formatCurrency(report.metrics.netCashApprox),
         note: "Collections − new loan principal in range",
+        accent: "purple",
       },
     ],
     [report.metrics, report.isSingleDayRange]
@@ -1538,198 +1621,200 @@ export default function Reports() {
                 Data synced successfully · {customers.filter((c) => !c.isArchived && !c.isDeleted).length} active customers · live Firestore
               </span>
             </div>
-            <section className="app-panel min-w-0 space-y-5 p-5 sm:p-6 xl:p-7">
-              <div className="flex min-w-0 flex-col items-end gap-3">
-                <div className="flex w-full min-w-0 flex-col gap-3 xl:max-w-[980px] xl:items-end">
-                  <div className="flex w-full min-w-0 flex-wrap gap-2 rounded-[24px] border border-slate-200/85 bg-white/90 p-2 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.18)] ring-1 ring-slate-900/5">
-                    {RANGE_PRESETS.map((p) => (
-                      <button
-                        key={p.key}
-                        type="button"
-                        onClick={() => selectRangePreset(p.key)}
-                        className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-2xl px-3 py-2 text-center text-xs font-semibold transition sm:px-3.5 sm:text-sm ${
-                          rangePreset === p.key
-                            ? "bg-blue-600 text-white shadow-[0_12px_24px_-16px_rgba(37,99,235,0.75)]"
-                            : "border border-transparent bg-white/70 text-slate-600 hover:border-blue-100 hover:bg-blue-50/80 hover:text-blue-900"
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
+            <section className="app-panel min-w-0 space-y-3 p-4 sm:space-y-4 sm:p-5">
+              <div className="w-full min-w-0 space-y-3">
+                <div className="flex w-full min-w-0 flex-wrap gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-50/40 p-1.5 sm:gap-2 sm:p-2">
+                  {RANGE_PRESETS.map((p) => (
                     <button
+                      key={p.key}
                       type="button"
-                      onClick={() => selectRangePreset("custom")}
-                        className={`inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-center text-xs font-semibold transition sm:px-3.5 sm:text-sm ${
-                        rangePreset === "custom"
-                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_12px_24px_-16px_rgba(37,99,235,0.75)]"
-                            : "border border-transparent bg-white/70 text-slate-600 hover:border-blue-100 hover:bg-blue-50/80 hover:text-blue-900"
+                      onClick={() => selectRangePreset(p.key)}
+                      className={`inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-xl px-2.5 py-1.5 text-center text-[11px] font-semibold transition sm:min-h-[40px] sm:px-3 sm:text-xs ${
+                        rangePreset === p.key
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "border border-transparent bg-white text-slate-600 hover:border-blue-100 hover:bg-blue-50/80 hover:text-blue-900"
                       }`}
                     >
-                      <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
-                      Custom
+                      {p.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => selectRangePreset("custom")}
+                    className={`inline-flex min-h-[38px] shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 py-1.5 text-center text-[11px] font-semibold transition sm:min-h-[40px] sm:px-3 sm:text-xs ${
+                      rangePreset === "custom"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "border border-transparent bg-white text-slate-600 hover:border-blue-100 hover:bg-blue-50/80 hover:text-blue-900"
+                    }`}
+                  >
+                    <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                    Custom
+                  </button>
+                </div>
+                {rangePreset === "custom" ? (
+                  <div className="grid w-full gap-2 rounded-2xl border border-slate-200/90 bg-slate-50/30 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end sm:gap-3">
+                    <label className="block min-w-0 space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">From date</span>
+                      <input
+                        type="date"
+                        value={customFromDraft}
+                        onChange={(e) => setCustomFromDraft(e.target.value)}
+                        className="app-input h-10 w-full min-w-0 rounded-xl border-slate-200 bg-white text-sm"
+                      />
+                    </label>
+                    <label className="block min-w-0 space-y-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">To date</span>
+                      <input
+                        type="date"
+                        value={customToDraft}
+                        onChange={(e) => setCustomToDraft(e.target.value)}
+                        className="app-input h-10 w-full min-w-0 rounded-xl border-slate-200 bg-white text-sm"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={applyCustomRange}
+                      className="app-button-primary inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-semibold"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetReportRange}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <RotateCcw className="h-4 w-4" aria-hidden />
+                      Reset
                     </button>
                   </div>
-                  {rangePreset === "custom" ? (
-                    <div className="grid w-full gap-3 rounded-[24px] border border-slate-200/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(244,248,255,0.94))] p-4 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.18)] ring-1 ring-blue-200/70 backdrop-blur-sm transition-all duration-300 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end">
-                      <label className="block min-w-0 space-y-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">From date</span>
-                        <input
-                          type="date"
-                          value={customFromDraft}
-                          onChange={(e) => setCustomFromDraft(e.target.value)}
-                          className="app-input h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-slate-50/90 text-sm font-medium text-slate-900 shadow-inner transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                        />
-                      </label>
-                      <label className="block min-w-0 space-y-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">To date</span>
-                        <input
-                          type="date"
-                          value={customToDraft}
-                          onChange={(e) => setCustomToDraft(e.target.value)}
-                          className="app-input h-11 w-full min-w-0 rounded-2xl border-slate-200 bg-slate-50/90 text-sm font-medium text-slate-900 shadow-inner transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={applyCustomRange}
-                        className="app-button-primary inline-flex h-11 items-center justify-center gap-2 self-end rounded-2xl px-[1.125rem] text-sm font-semibold shadow-sm transition hover:shadow-md active:scale-[0.98]"
-                      >
-                        Apply
-                      </button>
-                      <button
-                        type="button"
-                        onClick={resetReportRange}
-                        className="inline-flex h-11 items-center justify-center gap-2 self-end rounded-2xl border border-slate-200 bg-white px-[1.125rem] text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
-                      >
-                        <RotateCcw className="h-4 w-4" aria-hidden />
-                        Reset
-                      </button>
-                    </div>
-                  ) : null}
+                ) : null}
+              </div>
+
+              <div className="reports-summary-scroll min-w-0 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
+                <div className="reports-summary-grid grid min-w-[52rem] grid-cols-7 gap-2 xl:min-w-0">
+                  {collectionPreviewMetrics.map((m) => (
+                    <ReportCard key={m.label} icon={m.icon} label={m.label} value={m.value} accent={m.accent} />
+                  ))}
                 </div>
               </div>
-              <div className="grid min-w-0 gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
-                {collectionPreviewMetrics.map((m) => (
-                  <ReportCard key={m.label} icon={m.icon} label={m.label} value={m.value} />
-                ))}
-              </div>
-            </section>
 
-            <section className="app-panel min-w-0 space-y-5 p-5 sm:p-6 xl:p-7">
-              <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <h3 className="text-base font-semibold text-slate-900">Customer details</h3>
-                <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">
+              <div className="reports-detail-toolbar min-w-0 rounded-2xl border border-slate-200/80 bg-slate-50/50 px-2 py-2">
+                <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setCollectionPreviewOpen(true)}
-                    className="group inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/70 hover:text-blue-900"
+                    title="View report"
+                    className="group inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50/70"
                   >
-                    <Eye className="h-4 w-4 shrink-0 text-blue-600 transition group-hover:scale-105" aria-hidden />
-                    View Report
+                    <Eye className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden />
+                    View
                   </button>
                   <button
                     type="button"
                     disabled={collectionExcelLoading}
                     onClick={handleCollectionExcelDownload}
-                    className="app-button-primary inline-flex h-11 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition disabled:pointer-events-none disabled:opacity-60"
+                    title="Export Excel"
+                    className="app-button-primary inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium transition disabled:pointer-events-none disabled:opacity-60"
                   >
-                    {collectionExcelLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                    {collectionExcelLoading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
                     Excel
                   </button>
                   <button
                     type="button"
                     disabled={collectionPdfLoading}
                     onClick={handleCollectionPdfDownload}
-                    className="app-button-secondary inline-flex h-11 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition disabled:pointer-events-none disabled:opacity-60"
+                    title="Export PDF"
+                    className="app-button-secondary inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium transition disabled:pointer-events-none disabled:opacity-60"
                   >
-                    {collectionPdfLoading ? (
-                      <>
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        PDF…
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-4 w-4" />
-                        PDF
-                      </>
-                    )}
+                    {collectionPdfLoading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                    PDF
                   </button>
-                  <span className="inline-flex h-11 items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/90 px-3.5 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm">
-                    <span className="relative flex h-2 w-2">
+                  <span
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50/90 px-2 text-[11px] font-semibold text-emerald-900"
+                    title="Live sync"
+                  >
+                    <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     </span>
-                    Live sync
+                    Sync
                   </span>
+
+                  <div className="relative w-[5.5rem] shrink-0">
+                    <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={detailSearch}
+                      onChange={(e) => setDetailSearch(e.target.value)}
+                      placeholder="Search"
+                      className="app-input reports-detail-toolbar-field reports-detail-toolbar-search h-8 w-full rounded-lg bg-white pr-2 text-xs"
+                    />
+                  </div>
+
+                  <select
+                    value={centerFilter}
+                    onChange={(e) => {
+                      setCenterFilter(e.target.value);
+                      setSubCenterFilter("All");
+                    }}
+                    title="Center filter"
+                    className="app-select reports-detail-toolbar-field reports-detail-toolbar-select h-8 shrink-0 rounded-lg bg-white"
+                  >
+                    <option value="All">All</option>
+                    {dayCenters.map((label) => (
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={subCenterFilter}
+                    onChange={(e) => setSubCenterFilter(e.target.value)}
+                    title="Sub-center filter"
+                    className="app-select reports-detail-toolbar-field reports-detail-toolbar-select h-8 shrink-0 rounded-lg bg-white"
+                    disabled={centerFilter === "All"}
+                  >
+                    <option value="All">{centerFilter === "All" ? "Sub" : "All sub"}</option>
+                    <option value={NO_SUB_CENTER_LABEL}>{NO_SUB_CENTER_LABEL}</option>
+                    {(subCentersByDay.get(centerFilter) || []).map((label) => (
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="app-segmented shrink-0">
+                    {[
+                      { key: "all", label: "All", count: detailStatusCounts.all },
+                      { key: "pending", label: "Pend", count: detailStatusCounts.pending },
+                      { key: "due", label: "Due", count: detailStatusCounts.due },
+                      { key: "overdue", label: "Over", count: detailStatusCounts.overdue },
+                    ].map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setDetailFilter(item.key)}
+                        className={`inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-xl px-2 text-[11px] font-medium transition sm:text-xs ${
+                          detailFilter === item.key
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        <span
+                          className={`tabular-nums text-[10px] font-semibold ${
+                            detailFilter === item.key ? "text-white/85" : "text-slate-400"
+                          }`}
+                        >
+                          {item.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-slate-200/80 bg-slate-50/65 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-                <div className="app-segmented inline-flex shrink-0 items-center gap-0.5 p-0.5">
-                  {[
-                    { key: "all", label: "All" },
-                    { key: "pending", label: "Pend" },
-                    { key: "due", label: "Due" },
-                    { key: "overdue", label: "Over" },
-                  ].map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => setDetailFilter(item.key)}
-                      className={`inline-flex h-8 items-center justify-center whitespace-nowrap rounded-xl px-2.5 text-xs font-semibold leading-none transition sm:px-3 sm:text-[13px] ${
-                        detailFilter === item.key
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="relative min-w-0 flex-1 basis-[180px]">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={detailSearch}
-                    onChange={(e) => setDetailSearch(e.target.value)}
-                    placeholder="Search customer or phone"
-                    className="app-input reports-detail-toolbar-field reports-detail-toolbar-search w-full rounded-xl bg-white pr-3 text-sm shadow-inner"
-                  />
-                </div>
-
-                <select
-                  value={centerFilter}
-                  onChange={(e) => {
-                    setCenterFilter(e.target.value);
-                    setSubCenterFilter("All");
-                  }}
-                  className="app-select reports-detail-toolbar-field min-w-0 flex-1 basis-[140px] rounded-xl bg-white text-sm shadow-inner sm:max-w-[180px] sm:flex-none"
-                >
-                  <option value="All">All centers</option>
-                  {dayCenters.map((label) => (
-                    <option key={label} value={label}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={subCenterFilter}
-                  onChange={(e) => setSubCenterFilter(e.target.value)}
-                  className="app-select reports-detail-toolbar-field min-w-0 flex-1 basis-[140px] rounded-xl bg-white text-sm shadow-inner sm:max-w-[200px] sm:flex-none"
-                  disabled={centerFilter === "All"}
-                >
-                  <option value="All">{centerFilter === "All" ? "Select center first" : "All sub-centers"}</option>
-                  <option value={NO_SUB_CENTER_LABEL}>{NO_SUB_CENTER_LABEL}</option>
-                  {(subCentersByDay.get(centerFilter) || []).map((label) => (
-                    <option key={label} value={label}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="app-table-wrap min-w-0 overflow-x-auto rounded-[24px] border border-slate-200/80 bg-white shadow-[0_18px_34px_-30px_rgba(15,23,42,0.16)]">
+              <div className="app-table-wrap min-w-0 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
                 <table className="app-table text-left">
                   <thead className="bg-slate-50/95 backdrop-blur-sm">
                     <tr>
@@ -1802,10 +1887,10 @@ export default function Reports() {
                               setTxnPage(1);
                               setSelectedCustomerId(row.customerId);
                             }}
-                            className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-medium"
+                            className="app-button-secondary inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            View Details
+                            View
                           </button>
                         </td>
                       </tr>

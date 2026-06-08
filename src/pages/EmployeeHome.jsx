@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Clock3, FilePlus2, IndianRupee, UsersRound, Wallet } from "lucide-react";
+import { CheckCircle2, Clock3, FilePlus2, IndianRupee, UserPlus, UsersRound } from "lucide-react";
+import EmployeeAddCustomerModal from "../components/employee/EmployeeAddCustomerModal";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import useEmployeeCenterScope from "../hooks/useEmployeeCenterScope";
 import useAuth from "../hooks/useAuth";
@@ -36,19 +37,49 @@ function formatRecentWhen(entry) {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function StatTile({ icon: Icon, label, value, tone = "text-slate-950" }) {
+const EMPLOYEE_STAT_ACCENTS = {
+  blue: {
+    border: "border-[#3B82F6]/30 hover:border-[#3B82F6]/45",
+    iconShell: "bg-[#3B82F6]/10 text-[#3B82F6]",
+    value: "text-slate-950",
+  },
+  purple: {
+    border: "border-[#8B5CF6]/30 hover:border-[#8B5CF6]/45",
+    iconShell: "bg-[#8B5CF6]/10 text-[#8B5CF6]",
+    value: "text-slate-950",
+  },
+  orange: {
+    border: "border-[#F59E0B]/30 hover:border-[#F59E0B]/45",
+    iconShell: "bg-[#F59E0B]/10 text-[#F59E0B]",
+    value: "text-[#B45309]",
+  },
+  green: {
+    border: "border-[#10B981]/30 hover:border-[#10B981]/45",
+    iconShell: "bg-[#10B981]/10 text-[#10B981]",
+    value: "text-slate-950",
+  },
+};
+
+function EmployeeStatCard({ icon: Icon, label, value, accent = "blue" }) {
+  const tone = EMPLOYEE_STAT_ACCENTS[accent] || EMPLOYEE_STAT_ACCENTS.blue;
+  const valueText = String(value ?? "");
+  const valueSize =
+    valueText.length >= 12 ? "text-xs" : valueText.length >= 9 ? "text-sm" : "text-base";
+
   return (
-    <div className="app-panel-muted rounded-2xl p-3 sm:rounded-[22px] sm:p-3.5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="employee-field-label min-w-0 tracking-[0.18em]">{label}</p>
-        <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/70 sm:h-10 sm:w-10">
-          <Icon className="h-4 w-4 text-slate-700 sm:h-[18px] sm:w-[18px]" />
-        </div>
+    <div
+      className={`employee-stat-card flex flex-col items-center justify-center rounded-xl border bg-white px-2 py-2 shadow-sm transition hover:shadow-md ${tone.border}`}
+    >
+      <div className={`mb-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${tone.iconShell}`}>
+        <Icon className="h-2.5 w-2.5" aria-hidden />
       </div>
+      <p className="max-w-full px-0.5 text-center text-[7px] font-semibold uppercase leading-tight tracking-[0.08em] text-slate-500">
+        {label}
+      </p>
       <p
-        className={`mt-2 flex min-h-[2rem] items-center justify-center text-center text-xl font-semibold leading-tight sm:min-h-[2.5rem] sm:text-2xl md:text-3xl ${tone}`}
+        className={`mt-0.5 text-center font-bold tabular-nums leading-none tracking-tight ${valueSize} ${tone.value}`}
       >
-        {value}
+        {valueText}
       </p>
     </div>
   );
@@ -57,7 +88,9 @@ function StatTile({ icon: Icon, label, value, tone = "text-slate-950" }) {
 export default function EmployeeHome() {
   const { customers, entries, loading } = useLoanDataSync();
   const { profile } = useAuth();
-  const { assignedCentersLabel, hasAssignedCenter, scopeCustomers } = useEmployeeCenterScope();
+  const { assignedCenters, assignedCentersLabel, allCenters, hasAssignedCenter, scopeCustomers } =
+    useEmployeeCenterScope();
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const metrics = useMemo(() => {
     const scoped = scopeCustomers(customers);
@@ -82,21 +115,11 @@ export default function EmployeeHome() {
       return due && startOfDay(due).getTime() === today.getTime();
     });
     const pendingCollection = dueToday.filter((c) => !todayCollectedIds.has(c.customerId)).length;
-    const outstanding = scoped.reduce((sum, c) => {
-      const target = Number(c.totalPayable || 0);
-      const paid = Number(approvedByCustomer[c.customerId] || 0);
-      return sum + Math.max(target - paid, 0);
-    }, 0);
-    const pendingEntries = entries.filter(
-      (e) => e.approvalStatus !== "approved" && ids.has(e.customerId) && employeeMatchesCollector(profile, e)
-    ).length;
     const totalCollected = approvedEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
     return {
       scopedCount: scoped.length,
       todayCollected,
       pendingCollection,
-      outstanding,
-      pendingEntries,
       totalCollected,
     };
   }, [customers, entries, profile, scopeCustomers]);
@@ -133,82 +156,91 @@ export default function EmployeeHome() {
 
   return (
     <div className="employee-page">
-      <header className="app-panel mb-2.5 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 sm:mb-3 sm:gap-3 sm:px-4 sm:py-3">
-        <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/70 sm:h-10 sm:w-10">
-          <Wallet className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
-        </div>
+      <header className="app-panel mb-2 flex items-center gap-2 rounded-2xl px-3 py-2 sm:mb-2.5">
         <div className="min-w-0 flex-1">
           <p className="app-eyebrow employee-page-eyebrow">Home</p>
-          <h1 className="employee-page-title">Today at a glance</h1>
+          <h1 className="employee-page-title text-base sm:text-lg">Today at a glance</h1>
         </div>
-        <Link
-          to="/employee/loan-request"
-          className="app-button-primary inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
-        >
-          <FilePlus2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="whitespace-nowrap">New loan request</span>
-        </Link>
+        <div className="employee-header-actions flex shrink-0 items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={() => setAddCustomerOpen(true)}
+            className="app-button-primary employee-header-btn"
+            aria-label="Add customer"
+          >
+            <UserPlus className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="whitespace-nowrap">Customer</span>
+          </button>
+          <Link
+            to="/employee/loan-request"
+            className="app-button-primary employee-header-btn"
+          >
+            <FilePlus2 className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="whitespace-nowrap">New Loan</span>
+          </Link>
+        </div>
       </header>
 
       {hasAssignedCenter ? (
-        <p className="mb-2 rounded-2xl border border-blue-100 bg-blue-50/80 px-3 py-2 text-xs text-blue-900">
+        <p className="mb-1.5 rounded-xl border border-blue-100 bg-blue-50/60 px-2.5 py-1.5 text-[11px] text-blue-900">
           Assigned centres: <span className="font-semibold">{assignedCentersLabel}</span>
         </p>
       ) : (
-        <p className="mb-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="mb-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
           No centre assigned yet. Ask your administrator to set your assigned centre.
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-        <StatTile
+      <div className="employee-stat-grid">
+        <EmployeeStatCard
           icon={UsersRound}
           label="Assigned customers"
           value={loading ? "…" : String(metrics.scopedCount)}
+          accent="blue"
         />
-        <StatTile
+        <EmployeeStatCard
           icon={IndianRupee}
           label="Today's collection"
           value={loading ? "…" : formatCurrency(metrics.todayCollected)}
+          accent="purple"
         />
-        <StatTile
+        <EmployeeStatCard
           icon={Clock3}
           label="Pending customers"
           value={loading ? "…" : String(metrics.pendingCollection)}
-          tone="text-amber-700"
+          accent="orange"
         />
-        <StatTile
+        <EmployeeStatCard
           icon={CheckCircle2}
           label="Total collected"
           value={loading ? "…" : formatCurrency(metrics.totalCollected)}
+          accent="green"
         />
       </div>
 
-      <section className="app-panel-muted mt-3 rounded-2xl p-3 sm:mt-4 sm:rounded-[22px] sm:p-4" aria-labelledby="recent-paid-heading">
-        <div className="mb-2.5 flex items-center gap-2">
-          <div className="app-icon-shell flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/70">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+      <section className="app-panel-muted mt-2.5 rounded-2xl p-3 sm:mt-3" aria-labelledby="recent-paid-heading">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#10B981]/10 text-[#10B981]">
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
           </div>
-          <div className="min-w-0">
-            <h2 id="recent-paid-heading" className="text-sm font-semibold text-slate-950">
-              Recent collection
-            </h2>
-          </div>
+          <h2 id="recent-paid-heading" className="text-sm font-semibold text-slate-950">
+            Recent collection
+          </h2>
         </div>
 
         {loading ? (
-          <p className="py-4 text-center text-sm text-slate-500">Loading…</p>
+          <p className="py-3 text-center text-sm text-slate-500">Loading…</p>
         ) : recentPaid.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200/90 bg-white/50 px-3 py-4 text-center text-sm text-slate-600">
+          <p className="rounded-xl border border-dashed border-slate-200/90 bg-white/50 px-3 py-3 text-center text-sm text-slate-600">
             No recent payments yet.
           </p>
         ) : (
           <ul className="flex flex-col divide-y divide-slate-200/60">
             {recentPaid.map((row) => (
-              <li key={row.key} className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+              <li key={row.key} className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-950">{row.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-600 sm:text-sm">{row.whenLabel}</p>
+                  <p className="mt-0.5 text-xs text-slate-600">{row.whenLabel}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm font-semibold text-emerald-800">{formatCurrency(row.amount)}</p>
@@ -219,6 +251,15 @@ export default function EmployeeHome() {
           </ul>
         )}
       </section>
+
+      {addCustomerOpen ? (
+        <EmployeeAddCustomerModal
+          assignedCenters={assignedCenters}
+          allCenters={allCenters}
+          hasAssignedCenter={hasAssignedCenter}
+          onClose={() => setAddCustomerOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

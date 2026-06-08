@@ -93,7 +93,7 @@ export function drawAllReportFooters(doc, generatedLabel, margin = 10) {
 }
 
 export function fmtInrPdf(n) {
-  return `Rs ${Math.round(Number(n || 0)).toLocaleString("en-IN")}`;
+  return `₹${Math.round(Number(n || 0)).toLocaleString("en-IN")}`;
 }
 
 export function fmtDatePdf(value) {

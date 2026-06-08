@@ -55,7 +55,7 @@ function formatSummaryDate(value) {
 }
 
 function formatInr(n) {
-  return `Rs ${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+  return `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
 }
 
 function generateLoanId(now) {

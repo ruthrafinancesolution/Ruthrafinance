@@ -778,7 +778,7 @@ async function fetchLedgerWalletBalanceAndRows() {
 }
 
 function formatInr(n) {
-  return `Rs ${Number(n || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(n || 0).toLocaleString("en-IN")}`;
 }
 
 async function ensureDemoEmployeeProfileForUid(uid) {
@@ -2758,7 +2758,7 @@ export async function createLoanRequest({
   await createNotification({
     type: "approval_notification",
     title: "New loan request",
-    message: `${normalizeText(customer.customerName) || "Customer"} loan request of Rs ${principal.toLocaleString("en-IN")} submitted by ${normalizeText(employeeName) || "employee"}.`,
+    message: `${normalizeText(customer.customerName) || "Customer"} loan request of ₹${principal.toLocaleString("en-IN")} submitted by ${normalizeText(employeeName) || "employee"}.`,
     audienceRole: "admin",
     customerId: normalizedCustomerId,
     customerName: customer.customerName,
@@ -2922,7 +2922,7 @@ function buildDemoLoanApplicationPayload({
     loanAmount: DEFAULT_LOAN_PRESET.loanAmount,
     loanWeeks: DEFAULT_LOAN_PRESET.loanWeeks,
     loanPresetId: DEFAULT_LOAN_PRESET.id,
-    loanPresetLabel: "Rs 20,000 / 20 weeks",
+    loanPresetLabel: "₹20,000 / 20 weeks",
     loanPresetLoanAmount: DEFAULT_LOAN_PRESET.loanAmount,
     loanPresetLoanWeeks: DEFAULT_LOAN_PRESET.loanWeeks,
     loanPresetEmiAmount: DEFAULT_LOAN_PRESET.emiAmount,
@@ -3093,7 +3093,7 @@ export async function seedAllTestData() {
       loanAmount: DEFAULT_LOAN_PRESET.loanAmount,
       loanWeeks: DEFAULT_LOAN_PRESET.loanWeeks,
       loanPresetId: DEFAULT_LOAN_PRESET.id,
-      loanPresetLabel: "Rs 20,000 / 20 weeks",
+      loanPresetLabel: "₹20,000 / 20 weeks",
       loanPresetLoanAmount: DEFAULT_LOAN_PRESET.loanAmount,
       loanPresetLoanWeeks: DEFAULT_LOAN_PRESET.loanWeeks,
       loanPresetEmiAmount: DEFAULT_LOAN_PRESET.emiAmount,
@@ -3287,7 +3287,7 @@ export async function seedDummySubcenterCustomers() {
         loanAmount: DEFAULT_LOAN_PRESET.loanAmount,
         loanWeeks: DEFAULT_LOAN_PRESET.loanWeeks,
         loanPresetId: DEFAULT_LOAN_PRESET.id,
-        loanPresetLabel: "Rs 20,000 / 20 weeks",
+        loanPresetLabel: "₹20,000 / 20 weeks",
         loanPresetLoanAmount: DEFAULT_LOAN_PRESET.loanAmount,
         loanPresetLoanWeeks: DEFAULT_LOAN_PRESET.loanWeeks,
         loanPresetEmiAmount: DEFAULT_LOAN_PRESET.emiAmount,
@@ -3363,7 +3363,7 @@ export async function createCustomerAmountEntry({
     await createNotification({
       type: "payment_received_confirmation",
       title: "Payment received",
-      message: `${normalizeText(customerName) || "Customer"} payment of Rs ${Number(amount || 0).toLocaleString("en-IN")} was recorded.`,
+      message: `${normalizeText(customerName) || "Customer"} payment of ₹${Number(amount || 0).toLocaleString("en-IN")} was recorded.`,
       audienceRole: "admin",
       customerId,
       customerName,
@@ -3744,7 +3744,7 @@ export async function createWalletTransaction({
     action: "wallet_transaction",
     entityType: "wallet",
     entityId: transactionId,
-    message: `Wallet transaction of Rs ${Number(amount || 0).toLocaleString("en-IN")} was recorded.`,
+    message: `Wallet transaction of ₹${Number(amount || 0).toLocaleString("en-IN")} was recorded.`,
     actorName: normalizeText(createdBy) || "Admin",
     actorRole: "admin",
   });

@@ -37,7 +37,7 @@ import { normalizeCollectionFrequency as normalizeFrequency } from "../utils/loa
 
 const FREQUENCY_OPTIONS = ["All", "Daily", "Weekly", "Monthly"];
 const STATUS_OPTIONS = ["All", "Collected", "Partial Payment", "Skipped", "Rescheduled", "Pending"];
-const PERIOD_OPTIONS = ["All", "Today", "This Week", "This Month"];
+const PERIOD_OPTIONS = ["All", "Today", "This Week", "This Month", "This Year"];
 
 const EXPORT_COLUMNS = [
   { key: "customerName", label: "Customer Name" },
@@ -54,7 +54,7 @@ const EXPORT_COLUMNS = [
 ];
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function formatDate(value) {
@@ -139,19 +139,55 @@ function rowMatchesPeriodFilter(row, periodFilter) {
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     return collected >= monthStart && collected <= today;
   }
+  if (periodFilter === "This Year") {
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+    return collected >= yearStart && collected <= today;
+  }
   return true;
 }
 
-function CollectionStats({ label, value, icon: Icon }) {
+const COLLECTION_STAT_ACCENTS = {
+  green: {
+    card: "border-emerald-200/90 bg-emerald-50/70",
+    label: "text-emerald-800/80",
+    value: "text-emerald-950",
+    icon: "bg-emerald-100 text-emerald-600 border-emerald-200/60",
+  },
+  blue: {
+    card: "border-blue-200/90 bg-blue-50/70",
+    label: "text-blue-800/80",
+    value: "text-blue-950",
+    icon: "bg-blue-100 text-blue-600 border-blue-200/60",
+  },
+  orange: {
+    card: "border-amber-200/90 bg-amber-50/70",
+    label: "text-amber-800/80",
+    value: "text-amber-950",
+    icon: "bg-amber-100 text-amber-600 border-amber-200/60",
+  },
+  purple: {
+    card: "border-violet-200/90 bg-violet-50/70",
+    label: "text-violet-800/80",
+    value: "text-violet-950",
+    icon: "bg-violet-100 text-violet-600 border-violet-200/60",
+  },
+};
+
+function CollectionStats({ label, value, icon: Icon, accent = "blue" }) {
+  const tone = COLLECTION_STAT_ACCENTS[accent] || COLLECTION_STAT_ACCENTS.blue;
   return (
-    <div className="collection-register-stat app-panel-muted flex min-h-[4.75rem] min-w-0 flex-col justify-between rounded-2xl px-3.5 py-3">
+    <div
+      className={`collection-register-stat flex min-h-[4.75rem] min-w-0 flex-col justify-between rounded-2xl border px-3.5 py-3 shadow-sm ${tone.card}`}
+    >
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-slate-500">{label}</p>
-        <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/70">
+        <p className={`min-w-0 flex-1 text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] ${tone.label}`}>
+          {label}
+        </p>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${tone.icon}`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-slate-950">{value}</p>
+      <p className={`mt-2 text-center text-xl font-semibold tabular-nums tracking-tight ${tone.value}`}>{value}</p>
     </div>
   );
 }
@@ -517,27 +553,33 @@ export default function Collection() {
           <section className="app-panel min-w-0 p-5 md:p-6">
             <div className="collection-register-toolbar flex flex-col gap-2">
               <div className="collection-register-toolbar-row flex min-w-0 flex-wrap items-start gap-2.5 lg:flex-nowrap lg:gap-3">
-                <div className="grid min-w-0 w-full grid-cols-2 gap-2.5 sm:grid-cols-4 lg:min-w-0 lg:flex-1">
-                  <CollectionStats
-                    icon={Wallet}
-                    label="Total collected"
-                    value={formatCurrency(totals.totalCollected)}
-                  />
-                  <CollectionStats
-                    icon={ClipboardList}
-                    label="Collection records"
-                    value={String(totals.records)}
-                  />
-                  <CollectionStats
-                    icon={FileText}
-                    label="Outstanding total"
-                    value={formatCurrency(totals.totalOutstanding)}
-                  />
-                  <CollectionStats
-                    icon={Download}
-                    label="Approved customers"
-                    value={String(totals.approvedPaymentCustomerIds.size)}
-                  />
+                <div className="min-w-0 w-full lg:min-w-0 lg:flex-1">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    <CollectionStats
+                      icon={Wallet}
+                      label="Total collected"
+                      value={formatCurrency(totals.totalCollected)}
+                      accent="green"
+                    />
+                    <CollectionStats
+                      icon={ClipboardList}
+                      label="Collection records"
+                      value={String(totals.records)}
+                      accent="blue"
+                    />
+                    <CollectionStats
+                      icon={FileText}
+                      label="Outstanding total"
+                      value={formatCurrency(totals.totalOutstanding)}
+                      accent="orange"
+                    />
+                    <CollectionStats
+                      icon={Users}
+                      label="Approved customers"
+                      value={String(totals.approvedPaymentCustomerIds.size)}
+                      accent="purple"
+                    />
+                  </div>
                 </div>
                 <div className="collection-register-toolbar-side flex w-full min-w-0 flex-col gap-2 lg:w-auto lg:shrink-0 lg:border-l lg:border-slate-200/80 lg:pl-3">
                   <div className="collection-register-toolbar-actions flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -653,6 +695,7 @@ export default function Collection() {
                 onBulkApprove={handleBulkApprove}
                 onBulkReject={handleBulkReject}
                 showRemarksColumn={false}
+                enableBulkSelect={false}
                 emptyMessage="No collection rows match the selected filters."
               />
             </div>

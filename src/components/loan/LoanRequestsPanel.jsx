@@ -6,7 +6,7 @@ import { approveLoanRequest, rejectLoanRequest } from "../../services/userAuth";
 const STATUS_OPTIONS = ["All", "Pending Approval", "Approved", "Rejected"];
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function formatDate(value) {

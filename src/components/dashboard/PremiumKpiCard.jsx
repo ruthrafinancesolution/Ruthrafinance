@@ -3,7 +3,7 @@ import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
-  return `Rs ${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 const ACCENT_GRADIENT = {

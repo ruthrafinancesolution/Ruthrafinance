@@ -12,7 +12,7 @@ function parseDate(value) {
 }
 
 export function formatCurrency(value) {
-  return `Rs ${toNumber(value).toLocaleString("en-IN")}`;
+  return `₹${toNumber(value).toLocaleString("en-IN")}`;
 }
 
 export function formatDisplayDate(value) {
@@ -130,7 +130,7 @@ export function buildLoanSheetHtml(data) {
     },
     {
       label: "Loan amt / Tenure",
-      value: `${formatCurrency(loanAmount).replace(/^Rs\s+/, "₹")}`,
+      value: formatCurrency(loanAmount),
       secondary: `${tenure} weeks`,
     },
     {

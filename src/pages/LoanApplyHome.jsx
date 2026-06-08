@@ -349,7 +349,7 @@ export default function LoanApplyHome() {
         customerId: row.customerId,
         customerName: row.customerName || "Not available",
         customerMobile: formatPhone(row.mobileNumber),
-        loanAmount: row.loanAmount ? `Rs ${formatCurrency(row.loanAmount)}` : "Pending",
+        loanAmount: row.loanAmount ? `₹${formatCurrency(row.loanAmount)}` : "Pending",
         principal: row.totalPayable ? formatCurrency(row.totalPayable) : "Pending",
         progressAmount: row.totalCollected ? formatCurrency(row.totalCollected) : "0",
         disbursementDate: formatDate(row.disbursementDate),
@@ -494,7 +494,7 @@ export default function LoanApplyHome() {
 
           {filteredCustomers.length > 0 ? (
             <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <div className="loan-apply-customer-grid min-w-[640px] border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+              <div className="loan-apply-customer-grid min-w-[720px] items-center border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                 <span>#</span>
                 <span>Customer</span>
                 <span>Mobile</span>
@@ -510,24 +510,24 @@ export default function LoanApplyHome() {
                     return (
                   <div
                     key={customer.customerId}
-                    className="loan-apply-customer-grid min-w-[640px] items-center border-b border-slate-100 px-3 py-1.5 text-xs text-slate-700"
+                    className="loan-apply-customer-grid min-w-[720px] items-center border-b border-slate-100 px-3 py-2 text-xs text-slate-700"
                   >
-                    <span className="font-semibold text-slate-500">{index + 1}</span>
-                    <div className="loan-apply-customer-cell gap-1.5">
-                      <span className="shrink-0 font-medium text-slate-900">{customer.customerName || "Unnamed"}</span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <span className={`rounded border px-1.5 py-px text-xs font-semibold leading-tight ${scoreBadgeClass(profile.score)}`}>
+                    <span className="font-semibold tabular-nums text-slate-500">{index + 1}</span>
+                    <div className="loan-apply-customer-cell">
+                      <span className="min-w-0 truncate font-medium text-slate-900">{customer.customerName || "Unnamed"}</span>
+                      <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                        <span className={`rounded border px-1.5 py-px text-[10px] font-semibold leading-tight ${scoreBadgeClass(profile.score)}`}>
                           {profile.score}
                         </span>
-                        <span className={`text-xs font-semibold leading-tight ${decisionClass(profile.decision)}`}>
+                        <span className={`text-[10px] font-semibold leading-tight ${decisionClass(profile.decision)}`}>
                           {profile.decision}
                         </span>
                       </div>
                     </div>
-                    <span className="truncate">{customer.mobileNumber || "--"}</span>
-                    <span>{profile.onTimeRate}</span>
-                    <span className="text-xs text-slate-600">L:{profile.late}/M:{profile.missed}</span>
-                    <span>{profile.lastPaidAt}</span>
+                    <span className="truncate tabular-nums">{customer.mobileNumber || "--"}</span>
+                    <span className="tabular-nums">{profile.onTimeRate}</span>
+                    <span className="text-xs tabular-nums text-slate-600">L:{profile.late}/M:{profile.missed}</span>
+                    <span className="tabular-nums">{profile.lastPaidAt}</span>
                     <button
                       type="button"
                       onClick={() => goToLoanForm(customer.customerId)}

@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Clock3, Loader2, XCircle } from "lucide-react";
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function formatDate(value) {
@@ -91,6 +91,7 @@ export default function CollectionApprovalTable({
   onBulkApprove,
   onBulkReject,
   showRemarksColumn = true,
+  enableBulkSelect = true,
   emptyMessage = "No rows match the selected filters.",
 }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -164,11 +165,12 @@ export default function CollectionApprovalTable({
     setSelectedIds(new Set());
   };
 
-  const colSpan = showRemarksColumn ? 13 : 12;
+  const colSpan = (showRemarksColumn ? 13 : 12) - (enableBulkSelect ? 0 : 1);
+  const tableWidth = (showRemarksColumn ? 1584 : 1464) - (enableBulkSelect ? 0 : 48);
 
   return (
     <>
-      {selectedCount > 0 ? (
+      {enableBulkSelect && selectedCount > 0 ? (
         <div
           className="sticky top-0 z-20 mb-4 flex flex-col gap-3 rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-50/95 via-white to-slate-50/95 p-3 shadow-lg shadow-blue-900/5 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between"
           role="region"
@@ -220,10 +222,10 @@ export default function CollectionApprovalTable({
         <div className="max-h-[min(70vh,720px)] overflow-x-auto overflow-y-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch]">
           <table
             className="table-fixed border-collapse text-left"
-            style={{ minWidth: showRemarksColumn ? "1584px" : "1464px", width: showRemarksColumn ? "1584px" : "1464px" }}
+            style={{ minWidth: `${tableWidth}px`, width: `${tableWidth}px` }}
           >
             <colgroup>
-              <col className="w-[48px]" />
+              {enableBulkSelect ? <col className="w-[48px]" /> : null}
               <col className="w-[140px]" />
               <col className="w-[190px]" />
               <col className="w-[140px]" />
@@ -240,16 +242,18 @@ export default function CollectionApprovalTable({
             </colgroup>
             <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-sm">
               <tr>
-                <th className="border-b border-r border-slate-200 px-3 py-3 text-center">
-                  <PremiumCheckbox
-                    ref={selectAllRef}
-                    checked={allVisibleSelected}
-                    indeterminate={someVisibleSelected && !allVisibleSelected}
-                    disabled={!selectableRows.length || actionsDisabled}
-                    onChange={(e) => handleSelectAllVisible(e.target.checked)}
-                    ariaLabel="Select all visible pending payments"
-                  />
-                </th>
+                {enableBulkSelect ? (
+                  <th className="border-b border-r border-slate-200 px-3 py-3 text-center">
+                    <PremiumCheckbox
+                      ref={selectAllRef}
+                      checked={allVisibleSelected}
+                      indeterminate={someVisibleSelected && !allVisibleSelected}
+                      disabled={!selectableRows.length || actionsDisabled}
+                      onChange={(e) => handleSelectAllVisible(e.target.checked)}
+                      ariaLabel="Select all visible pending payments"
+                    />
+                  </th>
+                ) : null}
                 <th className="border-b border-r border-slate-200 px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
                   Customer
                 </th>
@@ -311,23 +315,25 @@ export default function CollectionApprovalTable({
                     <tr
                       key={row.entryId}
                       className={`border-t border-slate-100 transition-colors ${
-                        isSelected
+                        enableBulkSelect && isSelected
                           ? "bg-blue-50/80 ring-1 ring-inset ring-blue-300/50"
                           : "even:bg-slate-50/40 hover:bg-slate-50/90"
                       }`}
                     >
-                      <td className="border-r border-slate-100 px-3 py-3 text-center align-middle">
-                        {isSelectable ? (
-                          <PremiumCheckbox
-                            checked={isSelected}
-                            disabled={actionsDisabled}
-                            onChange={() => toggleRowSelection(row.entryId)}
-                            ariaLabel={`Select ${row.customerName}`}
-                          />
-                        ) : (
-                          <span className="inline-block h-[18px] w-[18px]" aria-hidden />
-                        )}
-                      </td>
+                      {enableBulkSelect ? (
+                        <td className="border-r border-slate-100 px-3 py-3 text-center align-middle">
+                          {isSelectable ? (
+                            <PremiumCheckbox
+                              checked={isSelected}
+                              disabled={actionsDisabled}
+                              onChange={() => toggleRowSelection(row.entryId)}
+                              ariaLabel={`Select ${row.customerName}`}
+                            />
+                          ) : (
+                            <span className="inline-block h-[18px] w-[18px]" aria-hidden />
+                          )}
+                        </td>
+                      ) : null}
                       <td className="overflow-hidden border-r border-slate-100 px-3 py-3 align-middle text-xs font-semibold text-slate-900">
                         <span className="block truncate" title={row.customerName}>
                           {row.customerName}
@@ -425,7 +431,7 @@ export default function CollectionApprovalTable({
         </div>
       </div>
 
-      {approveModalOpen ? (
+      {enableBulkSelect && approveModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <h4 className="text-lg font-semibold text-slate-950">Approve selected payments?</h4>
@@ -456,7 +462,7 @@ export default function CollectionApprovalTable({
         </div>
       ) : null}
 
-      {rejectModalOpen ? (
+      {enableBulkSelect && rejectModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <h4 className="text-lg font-semibold text-slate-950">

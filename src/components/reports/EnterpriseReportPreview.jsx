@@ -83,7 +83,7 @@ function parseSortableValue(cellType, val) {
 
 function formatCellDisplay(cellType, val) {
   if (val == null || val === "") return "—";
-  if (cellType === "currency" && typeof val === "number") return `Rs ${Number(val).toLocaleString("en-IN")}`;
+  if (cellType === "currency" && typeof val === "number") return `₹${Number(val).toLocaleString("en-IN")}`;
   if (cellType === "date") {
     if (val instanceof Date && !Number.isNaN(val.getTime())) return val.toLocaleDateString("en-GB");
     const d = new Date(val);

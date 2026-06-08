@@ -23,7 +23,7 @@ const PALETTE = {
 };
 
 function fmtInr(n) {
-  return `Rs ${Number(n || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(n || 0).toLocaleString("en-IN")}`;
 }
 
 function fmtDate(value) {

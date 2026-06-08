@@ -39,7 +39,7 @@ import { isBookedLoanCustomer, sumInvestorDeposits } from "../utils/walletLedger
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
-  return `Rs ${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 function formatDateTime(value) {
@@ -190,13 +190,13 @@ function WalletSparkline({ points }) {
 function CompactProgressCard({ collected, target }) {
   const percentage = target > 0 ? Math.min(Math.round((collected / target) * 100), 100) : 0;
   return (
-    <div className="dash-glass-panel relative min-h-0 min-w-0 overflow-hidden rounded-2xl p-4 transition-all duration-300 ease hover:scale-[1.01]">
-      <div className="pointer-events-none absolute right-0 top-0 h-36 w-36 translate-x-1/4 -translate-y-1/3 rounded-full bg-blue-500/[0.07] blur-3xl" />
-      <div className="relative flex flex-wrap items-center justify-between gap-3">
+    <div className="dash-glass-panel relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-2xl p-3 sm:p-4 transition-all duration-300 ease hover:scale-[1.01]">
+      <div className="pointer-events-none absolute right-0 top-0 h-28 w-28 translate-x-1/4 -translate-y-1/3 rounded-full bg-blue-500/[0.07] blur-3xl" />
+      <div className="relative flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/70 pb-2.5">
         <div className="min-w-0">
-          <h3 className="text-base font-bold tracking-tight text-slate-950">Recovery vs payable</h3>
+          <h3 className="text-sm font-bold tracking-tight text-slate-950 sm:text-base">Recovery vs payable</h3>
         </div>
-        <div className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center">
+        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
           <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
             <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgb(241 245 249)" strokeWidth="3.5" />
             <circle
@@ -217,7 +217,21 @@ function CompactProgressCard({ collected, target }) {
               </linearGradient>
             </defs>
           </svg>
-          <span className="text-[11px] font-bold tabular-nums text-slate-900">{percentage}%</span>
+          <span className="text-[10px] font-bold tabular-nums text-slate-900">{percentage}%</span>
+        </div>
+      </div>
+      <div className="relative mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-white/70 px-2.5 py-2 ring-1 ring-slate-200/40">
+          <p className="text-[9px] font-medium text-slate-500">Collected</p>
+          <p className="mt-0.5 text-center font-mono text-xs font-bold tabular-nums text-slate-900 sm:text-sm">
+            {formatCurrency(collected)}
+          </p>
+        </div>
+        <div className="rounded-xl bg-white/70 px-2.5 py-2 ring-1 ring-slate-200/40">
+          <p className="text-[9px] font-medium text-slate-500">Payable</p>
+          <p className="mt-0.5 text-center font-mono text-xs font-bold tabular-nums text-slate-900 sm:text-sm">
+            {formatCurrency(target)}
+          </p>
         </div>
       </div>
       <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100/90">
@@ -226,16 +240,7 @@ function CompactProgressCard({ collected, target }) {
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <div className="relative mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-white/70 px-2.5 py-2 ring-1 ring-slate-200/40">
-          <p className="text-[9px] font-medium text-slate-500">Collected</p>
-          <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-slate-900">{formatCurrency(collected)}</p>
-        </div>
-        <div className="rounded-xl bg-white/70 px-2.5 py-2 ring-1 ring-slate-200/40">
-          <p className="text-[9px] font-medium text-slate-500">Payable</p>
-          <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-slate-900">{formatCurrency(target)}</p>
-        </div>
-      </div>
+      <div className="min-h-0 flex-1" aria-hidden />
     </div>
   );
 }
@@ -645,7 +650,7 @@ export default function Dashboard() {
   function exportWalletReport(kind) {
     const stamp = new Date().toISOString().slice(0, 10);
     const base = [
-      ["Date & time", "Type", "Person", "Reference", "Credit (Rs)", "Debit (Rs)", "Wallet after (Rs)", "Remarks"],
+      ["Date & time", "Type", "Person", "Reference", "Credit (₹)", "Debit (₹)", "Wallet after (₹)", "Remarks"],
       ...filteredWalletTimeline.map((r) => [
         r.atLabel,
         r.label,
@@ -664,7 +669,7 @@ export default function Dashboard() {
     if (kind === "investor") {
       const rows = walletRows.filter((r) => (r.ledgerType || r.type) === WALLET_LEDGER_TYPES.INVESTOR_DEPOSIT);
       downloadCsv(`investor-deposit-report-${stamp}.csv`, [
-        ["Date", "Investor", "Amount (Rs)", "Method", "Reference", "Notes"],
+        ["Date", "Investor", "Amount (₹)", "Method", "Reference", "Notes"],
         ...rows.map((r) => [
           formatDateTime(r.submittedAt),
           r.investorName || r.personName,
@@ -678,7 +683,7 @@ export default function Dashboard() {
     }
     if (kind === "loan") {
       downloadCsv(`loan-disbursement-report-${stamp}.csv`, [
-        ["Customer", "Customer ID", "Principal (Rs)", "Disbursement / approval date"],
+        ["Customer", "Customer ID", "Principal (₹)", "Disbursement / approval date"],
         ...customers
           .filter((c) => Number(c.loanAmount || 0) > 0)
           .map((c) => [
@@ -692,7 +697,7 @@ export default function Dashboard() {
     }
     if (kind === "emi") {
       downloadCsv(`emi-collection-report-${stamp}.csv`, [
-        ["Date", "Customer", "Entry ID", "Amount (Rs)", "Status"],
+        ["Date", "Customer", "Entry ID", "Amount (₹)", "Status"],
         ...entries
           .filter((e) => String(e.approvalStatus || "").toLowerCase() === "approved")
           .map((e) => [
@@ -844,10 +849,10 @@ export default function Dashboard() {
           </section>
         </div>
 
-        <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)]">
+        <section className="grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(200px,0.62fr)_minmax(0,1.38fr)]">
           <CompactProgressCard collected={metrics.totalCollected} target={metrics.totalPayable} />
 
-          <div className="dash-glass-panel relative z-10 min-w-0 overflow-hidden rounded-2xl p-4 transition-all duration-300 ease hover:scale-[1.01]">
+          <div className="dash-glass-panel relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl p-4 sm:p-5 transition-all duration-300 ease hover:scale-[1.01]">
             <div className="pointer-events-none absolute -right-12 top-0 h-44 w-44 rounded-full bg-blue-500/[0.07] blur-3xl" />
             <div className="relative flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 pr-2">
@@ -868,7 +873,7 @@ export default function Dashboard() {
                   +In {formatCurrency(Math.round(investorDepositsTotal))}
                 </span>
                 <span className="text-slate-300">→</span>
-                <span className="rounded-lg bg-slate-100/90 px-1.5 py-0.5 text-slate-900 ring-1 ring-slate-200/60 sm:px-2 sm:py-1">
+                <span className="max-w-full truncate rounded-lg bg-slate-100/90 px-1.5 py-0.5 text-slate-900 ring-1 ring-slate-200/60 sm:px-2 sm:py-1">
                   Wallet {formatCurrency(Math.round(cashInHand))}
                 </span>
                 <span className="text-slate-300">→</span>
@@ -887,7 +892,7 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between gap-1">
                   <div className="min-w-0">
                     <p className="text-[9px] font-medium text-slate-500">Wallet</p>
-                    <p className="font-mono text-sm font-bold tabular-nums leading-tight text-slate-950">{formatCurrency(Math.round(cashInHand))}</p>
+                    <p className="break-all font-mono text-xs font-bold tabular-nums leading-tight text-slate-950 sm:text-sm">{formatCurrency(Math.round(cashInHand))}</p>
                   </div>
                   {user?.uid ? (
                     <button
@@ -1080,8 +1085,8 @@ export default function Dashboard() {
               },
               {
                 key: "min",
-                label: "Min (Rs)",
-                labelTitle: "Min amount (Rs)",
+                label: "Min (₹)",
+                labelTitle: "Min amount (₹)",
                 control: (
                   <input
                     type="text"
@@ -1094,8 +1099,8 @@ export default function Dashboard() {
               },
               {
                 key: "max",
-                label: "Max (Rs)",
-                labelTitle: "Max amount (Rs)",
+                label: "Max (₹)",
+                labelTitle: "Max amount (₹)",
                 control: (
                   <input
                     type="text"
@@ -1442,7 +1447,7 @@ export default function Dashboard() {
                   />
                 </label>
                 <label className="block text-xs font-medium text-slate-700">
-                  Deposit amount (Rs)
+                  Deposit amount (₹)
                   <input
                     value={invAmount}
                     onChange={(e) => setInvAmount(e.target.value)}

@@ -49,7 +49,7 @@ function toNumber(value) {
 }
 
 function formatCurrency(value) {
-  return `Rs ${toNumber(value).toLocaleString("en-IN")}`;
+  return `₹${toNumber(value).toLocaleString("en-IN")}`;
 }
 
 function getPresetLabel(preset) {

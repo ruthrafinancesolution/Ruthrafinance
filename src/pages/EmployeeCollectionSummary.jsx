@@ -6,7 +6,7 @@ import { employeeMatchesCollector } from "../utils/employeeManagement";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function formatWhen(entry) {

@@ -58,7 +58,7 @@ export function formatPresetLabel(preset) {
   const amount = toNumber(preset?.loanAmount);
   const weeks = toNumber(preset?.loanWeeks);
   if (!amount && !weeks) return "Custom preset";
-  const amountLabel = amount ? `Rs ${amount.toLocaleString("en-IN")}` : "Amount";
+  const amountLabel = amount ? `₹${amount.toLocaleString("en-IN")}` : "Amount";
   const weeksLabel = weeks ? `${weeks} weeks` : "Weeks";
   return `${amountLabel} / ${weeksLabel}`;
 }

@@ -154,7 +154,7 @@ export default function AdminControls() {
       await refreshProfile();
       setResetSummary(result);
       setStatus(
-        `Demo data cleared (${result.totalDeleted} docs). Dashboard and Accounts should show Rs 0 — hard-refresh (Ctrl+F5) if needed, then test deposit → loan → EMI flow.`
+        `Demo data cleared (${result.totalDeleted} docs). Dashboard and Accounts should show ₹0 — hard-refresh (Ctrl+F5) if needed, then test deposit → loan → EMI flow.`
       );
       await loadData();
     } catch (resetError) {
@@ -259,7 +259,7 @@ export default function AdminControls() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 font-sans text-[11px] text-slate-600">Opening wallet: Rs {resetSummary.cashInHandOpening}</p>
+              <p className="mt-2 font-sans text-[11px] text-slate-600">Opening wallet: ₹{resetSummary.cashInHandOpening}</p>
             </div>
           ) : null}
           {seedSummary ? (

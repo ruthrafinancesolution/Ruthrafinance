@@ -9,7 +9,7 @@ import {
 import { normalizeCollectionFrequency } from "./loanTimelineDates.js";
 
 export function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 export function formatDate(value) {

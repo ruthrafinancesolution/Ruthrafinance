@@ -58,21 +58,48 @@ function formatDate(value) {
 }
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
-function ApprovalStats({ label, value, icon: Icon }) {
+const APPROVAL_STAT_ACCENTS = {
+  blue: {
+    card: "border-blue-200 bg-blue-50/50",
+    label: "text-blue-800/75",
+    icon: "bg-blue-100 text-blue-600",
+  },
+  orange: {
+    card: "border-amber-200 bg-amber-50/50",
+    label: "text-amber-800/75",
+    icon: "bg-amber-100 text-amber-600",
+  },
+  green: {
+    card: "border-emerald-200 bg-emerald-50/50",
+    label: "text-emerald-800/75",
+    icon: "bg-emerald-100 text-emerald-600",
+  },
+  purple: {
+    card: "border-violet-200 bg-violet-50/50",
+    label: "text-violet-800/75",
+    icon: "bg-violet-100 text-violet-600",
+  },
+};
+
+function ApprovalStats({ label, value, icon: Icon, accent = "blue" }) {
+  const tone = APPROVAL_STAT_ACCENTS[accent] || APPROVAL_STAT_ACCENTS.blue;
+
   return (
-    <div className="app-panel-muted rounded-[26px] p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-        </div>
-        <div className="app-icon-shell flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70">
-          <Icon className="h-5 w-5" />
+    <div className={`rounded-xl border px-3 py-2.5 shadow-sm ${tone.card}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className={`min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] ${tone.label}`}>
+          {label}
+        </p>
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone.icon}`}>
+          <Icon className="h-4 w-4" />
         </div>
       </div>
+      <p className="mt-1.5 text-center text-lg font-semibold tabular-nums leading-tight tracking-tight text-slate-950 sm:text-xl">
+        {value}
+      </p>
     </div>
   );
 }
@@ -319,71 +346,71 @@ export function ApprovalRegisterPanel() {
 
   return (
     <section className="app-panel min-w-0 max-w-full p-5 md:p-6">
-          <div className="app-sticky-bar">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="app-segmented w-full sm:w-auto">
-                  {VIEW_OPTIONS.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => setView(option.key)}
-                      className={`min-h-[44px] rounded-xl px-4 py-2 text-sm font-medium transition ${
-                        view === option.key ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {option.label} View
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPreviewOpen(true)}
-                  className="app-button-primary inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold shadow-sm"
-                >
-                  <FileText className="h-4 w-4" />
-                  Report &amp; export
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <ApprovalStats
               icon={Wallet}
               label="Total entries"
               value={String(entries.length)}
+              accent="blue"
             />
             <ApprovalStats
               icon={Clock3}
               label="Pending"
               value={String(pendingEntries.length)}
+              accent="orange"
             />
             <ApprovalStats
               icon={CheckCircle2}
               label="Approved"
               value={String(approvedEntries.length)}
+              accent="green"
             />
             <ApprovalStats
               icon={Download}
               label="Filtered total"
               value={formatCurrency(totals.totalAmount)}
+              accent="purple"
             />
           </div>
 
-          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+            <div className="relative w-full max-w-xs sm:w-56 md:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search customer, center, collector..."
-                className="app-input w-full !pl-11 pr-4 bg-slate-50"
+                className="app-input w-full !min-h-[40px] !py-2 !pl-10 !pr-3 text-sm bg-slate-50"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800">Live sync</span>
+
+            <div className="app-segmented w-full sm:w-auto">
+              {VIEW_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setView(option.key)}
+                  className={`min-h-[40px] rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    view === option.key ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {option.label} View
+                </button>
+              ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="app-button-primary inline-flex min-h-[40px] items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold shadow-sm"
+            >
+              <FileText className="h-4 w-4" />
+              Report &amp; export
+            </button>
+
+            <span className="ml-auto shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800">
+              Live sync
+            </span>
           </div>
 
           {error ? (

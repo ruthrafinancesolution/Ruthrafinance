@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Archive,
   Eye,
   FileText,
   Filter,
@@ -180,9 +179,6 @@ export default function Customer() {
     if (statusFilter === "Favourite") {
       return customers.filter((c) => favoriteSet.has(c.customerId));
     }
-    if (statusFilter === "Archived") {
-      return customers.filter((c) => c.isArchived);
-    }
     return customers.filter((c) => !c.isArchived);
   }, [customers, statusFilter, favoriteSet]);
 
@@ -357,18 +353,6 @@ export default function Customer() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatusFilter("Archived")}
-                  className={`inline-flex items-center gap-1.5 border-b-2 pb-2 text-sm font-semibold transition ${
-                    statusFilter === "Archived"
-                      ? "border-amber-500 text-amber-700"
-                      : "border-transparent text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                  Archived
-                </button>
-                <button
-                  type="button"
                   onClick={() => setStatusFilter("Favourite")}
                   className={`inline-flex items-center gap-1.5 border-b-2 pb-2 text-sm font-semibold transition ${
                     statusFilter === "Favourite"
@@ -510,7 +494,7 @@ export default function Customer() {
                     <>
                       No favourite customers yet. Click the{" "}
                       <Star className="mx-0.5 inline-block h-3.5 w-3.5 align-text-bottom text-amber-500" /> on any row
-                      while viewing Active or Archived to add one here.
+                      while viewing Active customers to add one here.
                     </>
                   ) : (
                     `No ${statusFilter.toLowerCase()} customers here.`

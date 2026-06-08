@@ -79,7 +79,7 @@ const VALID_TAB_KEYS = new Set(TABS.map((item) => item.key));
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
-  return `Rs ${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 function formatDate(value) {
@@ -1667,7 +1667,7 @@ export default function Accounts() {
         [ACCOUNTS_COMPANY_NAME],
         [`Accounts report · ${stamp}`],
         [],
-        ["Metric", "Amount (Rs)"],
+        ["Metric", "Amount (₹)"],
         ["Total balance (office)", Number(overviewMetrics.totalBalance)],
         ["Today income", Number(overviewMetrics.todayIncome)],
         ["Today expense", Number(overviewMetrics.todayExpense)],
@@ -1814,7 +1814,7 @@ export default function Accounts() {
         [ACCOUNTS_COMPANY_NAME],
         [`Accounts finance overview · ${stamp}`],
         [],
-        ["Metric", "Amount (Rs)"],
+        ["Metric", "Amount (₹)"],
         ["Office net balance (all-time)", Number(overviewMetrics.totalBalance)],
         ["Book income (completed)", Number(accountsOverviewBookIncome)],
         ["Book expense (completed)", Number(accountsOverviewBookExpense)],
@@ -2056,111 +2056,79 @@ export default function Accounts() {
   }
 
   return (
-    <AdminLayout
-      title="Accounts"
-      description=""
-      action={
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setTab("transactions");
-                setEditingTransactionId("");
-                setTransactionError("");
-                setTransactionForm(emptyTransactionForm("expense"));
-              }}
-              className="accounts-toolbar-btn accounts-toolbar-btn--expense"
-            >
-              <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
-              Add expense
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTab("transactions");
-                setEditingTransactionId("");
-                setTransactionError("");
-                setTransactionForm(emptyTransactionForm("income"));
-              }}
-              className="accounts-toolbar-btn accounts-toolbar-btn--income"
-            >
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-              Add income
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("reports")}
-              className="accounts-toolbar-btn accounts-toolbar-btn--reports"
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              Reports
-            </button>
-            <button
-              type="button"
-              disabled={!isReady || overviewPreviewPdfLoading || overviewPreviewExcelLoading}
-              onClick={() => setAccountsOverviewPreviewOpen(true)}
-              className="accounts-toolbar-btn accounts-toolbar-btn--view"
-            >
-              <Eye className="h-3.5 w-3.5 shrink-0 opacity-95" />
-              View Report
-            </button>
-            <button
-              type="button"
-              disabled={exportPdfLoading || exportExcelLoading || overviewPreviewPdfLoading || overviewPreviewExcelLoading}
-              onClick={() => void handleExportAccountsPdf()}
-              className="accounts-toolbar-btn accounts-toolbar-btn--pdf"
-            >
-              {exportPdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
-              {exportPdfLoading ? "Generating PDF…" : "Export PDF"}
-            </button>
-            <button
-              type="button"
-              disabled={exportPdfLoading || exportExcelLoading || overviewPreviewPdfLoading || overviewPreviewExcelLoading}
-              onClick={() => void handleExportAccountsExcel()}
-              className="accounts-toolbar-btn accounts-toolbar-btn--excel"
-            >
-              {exportExcelLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 text-teal-700" />}
-              {exportExcelLoading ? "Generating…" : "Export Excel"}
-            </button>
-          </div>
-          <div className="flex flex-wrap justify-end gap-1.5 sm:ml-1">
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800">Admin only</span>
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">Live sync</span>
-          </div>
-        </div>
-      }
-    >
+    <AdminLayout>
       <div className="app-grid-page grid gap-4">
         <section className="rounded-[22px] border border-slate-100/80 bg-white/90 px-4 py-3.5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] backdrop-blur-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Accounts</h2>
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("transactions");
+                  setEditingTransactionId("");
+                  setTransactionError("");
+                  setTransactionForm(emptyTransactionForm("expense"));
+                }}
+                className="accounts-toolbar-btn accounts-toolbar-btn--expense"
+              >
+                <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
+                Add expense
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("transactions");
+                  setEditingTransactionId("");
+                  setTransactionError("");
+                  setTransactionForm(emptyTransactionForm("income"));
+                }}
+                className="accounts-toolbar-btn accounts-toolbar-btn--income"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                Add income
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("reports")}
+                className="accounts-toolbar-btn accounts-toolbar-btn--reports"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Reports
+              </button>
+              <button
+                type="button"
+                disabled={!isReady || overviewPreviewPdfLoading || overviewPreviewExcelLoading}
+                onClick={() => setAccountsOverviewPreviewOpen(true)}
+                className="accounts-toolbar-btn accounts-toolbar-btn--view"
+              >
+                <Eye className="h-3.5 w-3.5 shrink-0 opacity-95" />
+                View Report
+              </button>
+              <button
+                type="button"
+                disabled={exportPdfLoading || exportExcelLoading || overviewPreviewPdfLoading || overviewPreviewExcelLoading}
+                onClick={() => void handleExportAccountsPdf()}
+                className="accounts-toolbar-btn accounts-toolbar-btn--pdf"
+              >
+                {exportPdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                {exportPdfLoading ? "Generating PDF…" : "Export PDF"}
+              </button>
+              <button
+                type="button"
+                disabled={exportPdfLoading || exportExcelLoading || overviewPreviewPdfLoading || overviewPreviewExcelLoading}
+                onClick={() => void handleExportAccountsExcel()}
+                className="accounts-toolbar-btn accounts-toolbar-btn--excel"
+              >
+                {exportExcelLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 text-teal-700" />}
+                {exportExcelLoading ? "Generating…" : "Export Excel"}
+              </button>
             </div>
-            <div className="-mx-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto rounded-2xl bg-slate-100/70 p-1 sm:mx-0 sm:justify-end">
-              {TABS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setTab(item.key)}
-                  className={`shrink-0 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
-                    tab === item.key ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-white/90"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800">Admin only</span>
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">Live sync</span>
             </div>
           </div>
-          {statusMessage ? (
-            <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-900">{statusMessage}</div>
-          ) : null}
-          {loadError ? (
-            <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">{loadError}</div>
-          ) : null}
-          {exportError ? (
-            <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">{exportError}</div>
-          ) : null}
+
           {tab === "overview" ? (
             <div className="mt-4 grid min-w-0 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">
               <PremiumKpiCard
@@ -2205,7 +2173,33 @@ export default function Accounts() {
               />
             </div>
           ) : null}
+          {statusMessage ? (
+            <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-900">{statusMessage}</div>
+          ) : null}
+          {loadError ? (
+            <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">{loadError}</div>
+          ) : null}
+          {exportError ? (
+            <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">{exportError}</div>
+          ) : null}
         </section>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+          <div className="-mx-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto rounded-2xl bg-slate-100/70 p-1 sm:mx-0 sm:justify-end">
+            {TABS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setTab(item.key)}
+                className={`shrink-0 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                  tab === item.key ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-white/90"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <section className="rounded-[22px] border border-slate-100/90 bg-gradient-to-br from-white via-slate-50/40 to-white px-4 py-4 shadow-[0_2px_14px_rgba(15,23,42,0.04)]">
           <div className="flex flex-wrap justify-end gap-2">
@@ -2836,7 +2830,6 @@ export default function Accounts() {
           <>
             <Panel
               title="Reports"
-              eyebrow="Period & filters"
               icon={BarChart3}
               actions={
                 <>
@@ -2867,48 +2860,38 @@ export default function Accounts() {
                 </>
               }
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <p className="max-w-xl text-sm text-slate-600">
-                  <span className="font-semibold text-slate-800">Office period</span>{" "}
-                  <span className="rounded-full bg-slate-900/5 px-2.5 py-1 text-sm font-semibold text-slate-900">{officeAppliedBounds.label}</span>
-                  <span className="mt-1 block text-xs text-slate-500">Use the Office date range strip above (same filters as transactions, payroll & exports).</span>
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select value={reportTypeFilter} onChange={(event) => setReportTypeFilter(event.target.value)} className="app-select h-10 min-w-[160px]">
-                    <option value="all">All types</option>
-                    <option value="income">Income only</option>
-                    <option value="expense">Expense only</option>
-                  </select>
-                  <button type="button" onClick={() => setReportTypeFilter("all")} className="app-button-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium">
-                    <RefreshCw className="h-4 w-4" />
-                    Reset type filter
-                  </button>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select value={reportTypeFilter} onChange={(event) => setReportTypeFilter(event.target.value)} className="app-select h-10 min-w-[160px]">
+                  <option value="all">All types</option>
+                  <option value="income">Income only</option>
+                  <option value="expense">Expense only</option>
+                </select>
+                <button type="button" onClick={() => setReportTypeFilter("all")} className="app-button-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium">
+                  <RefreshCw className="h-4 w-4" />
+                  Reset type filter
+                </button>
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <StatCard icon={TrendingUp} label="Income" value={formatCurrency(reportIncomeTotal)} hint="Office income in range." tone="text-emerald-700" />
-                <StatCard icon={TrendingDown} label="Expense" value={formatCurrency(reportExpenseTotal)} hint="Books + payroll in range." tone="text-rose-700" />
+                <StatCard icon={TrendingUp} label="Income" value={formatCurrency(reportIncomeTotal)} tone="text-emerald-700" />
+                <StatCard icon={TrendingDown} label="Expense" value={formatCurrency(reportExpenseTotal)} tone="text-rose-700" />
                 <StatCard
                   icon={Wallet}
                   label="Net profit / loss"
                   value={formatCurrency(reportOfficeNet)}
-                  hint="Office ledger only."
                   tone={reportOfficeNet >= 0 ? "text-emerald-700" : "text-rose-700"}
                 />
               </div>
 
               <div className="mt-6 grid gap-5 lg:grid-cols-2">
                 <div className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Net trend</p>
-                  <p className="mt-0.5 text-sm text-slate-600">Last six months — net after expenses (payroll included).</p>
+                  <h4 className="text-base font-semibold text-slate-900">Net trend</h4>
                   <div className="mt-3">
                     <TrendGraph data={profitTrendData} compact />
                   </div>
                 </div>
                 <div className="rounded-[22px] border border-slate-100 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Income & expense mix</p>
-                  <p className="mt-0.5 text-sm text-slate-600">Office ledger categories for the selected report period.</p>
+                  <h4 className="text-base font-semibold text-slate-900">Income & expense mix</h4>
                   <div className="mt-4 grid gap-4 lg:grid-cols-2">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Income</p>

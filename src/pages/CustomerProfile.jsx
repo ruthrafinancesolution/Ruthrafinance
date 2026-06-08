@@ -24,7 +24,7 @@ import { downloadCustomerProfilePdf } from "../utils/customerProfilePdf";
 import { isImageAttachment, isPdfAttachment, openCustomerDocument } from "../utils/customerDocumentAttachments";
 
 function formatCurrency(value) {
-  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
 function DocumentAttachmentCard({ label, name, url }) {

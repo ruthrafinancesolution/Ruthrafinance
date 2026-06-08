@@ -21,7 +21,7 @@ import { buildEmployeeCustomerSummary } from "../utils/employeeCustomerSummary";
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
-  return `Rs ${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 const FROM_LIST_DETAIL_FIELDS = [
