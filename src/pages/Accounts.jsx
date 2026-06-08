@@ -2288,7 +2288,6 @@ export default function Accounts() {
             <section className="grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
               <Panel
                 title={editingTransactionId ? "Edit entry" : "Record transaction"}
-                eyebrow="Income or expense"
                 icon={Plus}
                 actions={
                   editingTransactionId ? (
@@ -2307,9 +2306,6 @@ export default function Accounts() {
                 }
               >
                 <form className="space-y-3" onSubmit={handleTransactionSubmit}>
-                  <p className="text-xs text-slate-500">
-                    ID <span className="font-mono font-semibold text-slate-800">{editingTransactionId || "auto on save"}</span>
-                  </p>
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Date</label>
@@ -2446,9 +2442,7 @@ export default function Accounts() {
                   className="flex w-full items-center justify-between gap-2 text-left"
                 >
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-600">Library</p>
                     <h3 className="text-base font-semibold text-slate-900">Categories</h3>
-                    <p className="text-xs text-slate-500">{categories.length} items</p>
                   </div>
                   <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${categoriesOpen ? "rotate-180" : ""}`} />
                 </button>
@@ -2507,7 +2501,6 @@ export default function Accounts() {
 
             <Panel
               title="Recent transactions"
-              eyebrow="Filter & export"
               icon={ReceiptText}
               actions={
                 <>
