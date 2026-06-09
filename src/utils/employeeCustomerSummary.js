@@ -5,6 +5,8 @@ import {
   getCurrentTenureCollectedDisplay,
   getCurrentTenureCollectionStatus,
   getCurrentTenureListDisplay,
+  getCurrentTenurePartiallyPaidDisplay,
+  getNextDueDateDisplay,
   hasCurrentTenurePendingApproval,
   isCurrentTenureCollected,
 } from "./employeeCollectionDetails.js";
@@ -56,7 +58,9 @@ export function buildEmployeeCustomerSummary(customer, customerEntries = [], all
     placeLabel: getEmployeeCustomerPlaceLabel(customer, allCenters),
     currentDueAmount: listDisplay.dueAmountDisplay,
     currentDueAmountNumber: listDisplay.dueAmountNumber,
+    partiallyPaidDisplay: getCurrentTenurePartiallyPaidDisplay(customer, customerEntries),
     pendingTenuresLabel: detail.pendingTenuresLabel || "—",
+    nextDueDateDisplay: getNextDueDateDisplay(customer, customerEntries),
     loanDate: detail.loanDate || "—",
     currentDueDate: listDisplay.dueDateDisplay,
     currentTenure: listDisplay.tenureDisplay,
@@ -77,7 +81,9 @@ export const EMPLOYEE_CUSTOMER_DETAIL_FIELDS = [
   { key: "phoneNumber", label: "Phone Number" },
   { key: "centerLabel", label: "Center" },
   { key: "currentDueAmount", label: "Current Due" },
+  { key: "partiallyPaidDisplay", label: "Partially" },
   { key: "pendingTenuresLabel", label: "Pending Tenure" },
+  { key: "nextDueDateDisplay", label: "Next Due Date" },
   { key: "loanDate", label: "Loan Date" },
   { key: "currentTenure", label: "Current Tenure" },
 ];

@@ -3,7 +3,9 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   BadgeCheck,
+  CalendarClock,
   CalendarDays,
+  CircleDot,
   Clock3,
   DollarSign,
   IdCard,
@@ -30,7 +32,9 @@ const FROM_LIST_DETAIL_FIELDS = [
   { key: "phoneNumber", label: "Phone Number", icon: Phone },
   { key: "centerLabel", label: "Center", icon: MapPin },
   { key: "currentDueAmount", label: "Current Due", icon: DollarSign },
-  { key: "pendingTenuresLabel", label: "Pending Tenure", icon: Clock3, wide: true },
+  { key: "partiallyPaidDisplay", label: "Partially", icon: CircleDot },
+  { key: "pendingTenuresLabel", label: "Pending Tenure", icon: Clock3 },
+  { key: "nextDueDateDisplay", label: "Next Due Date", icon: CalendarClock },
   { key: "loanDate", label: "Loan Date", icon: CalendarDays },
   { key: "currentTenure", label: "Current Tenure", icon: BadgeCheck },
 ];

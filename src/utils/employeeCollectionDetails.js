@@ -279,6 +279,21 @@ export function getCurrentTenureCollectedDisplay(customer, customerEntries) {
   return "—";
 }
 
+export function getCurrentTenurePartiallyPaidDisplay(customer, customerEntries) {
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  if (!schedule.length) return "—";
+  const paidAmount = getCurrentTenureCollectedAmount(customer, customerEntries);
+  return `₹${paidAmount.toLocaleString("en-IN")}`;
+}
+
+export function getNextDueDateDisplay(customer, customerEntries) {
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  if (!schedule.length) return "—";
+  const nextUnpaid = schedule.find((item) => !isInstallmentPaid(item));
+  if (!nextUnpaid?.dueDate) return "—";
+  return formatDate(nextUnpaid.dueDate);
+}
+
 export function isCurrentTenureCollected(customer, customerEntries) {
   const tenure = computeTenureBreakdown(customer, customerEntries);
   const schedule = buildInstallmentSchedule(customer, customerEntries);
@@ -352,7 +367,7 @@ export function getCurrentTenureListDisplay(customer, customerEntries) {
 
   return {
     dueAmountNumber: dueAmount,
-    dueAmountDisplay: dueAmount > 0 ? `₹${dueAmount.toLocaleString("en-IN")}` : "—",
+    dueAmountDisplay: currentItem ? `₹${dueAmount.toLocaleString("en-IN")}` : "—",
     dueDateDisplay: currentItem?.dueDate ? formatDate(currentItem.dueDate) : "—",
     tenureDisplay:
       tenure.currentTenure && tenure.currentTenure !== "--"
@@ -368,6 +383,12 @@ export function buildCustomerDetailRow(customer, customerEntries) {
   const frequency = normalizeCollectionFrequency(customer.collectionFrequency);
   const details = computeCustomerCollectionDetails(customer, customerEntries);
   const tenure = computeTenureBreakdown(customer, customerEntries);
+  const schedule = buildInstallmentSchedule(customer, customerEntries);
+  const pendingTenuresLabel = !schedule.length
+    ? "—"
+    : tenure.pendingTenures.length
+      ? tenure.pendingTenures.join(", ")
+      : "0";
   return {
     customerId: customer.customerId || "--",
     sealNumber: getSealNumber(customer),
@@ -380,7 +401,7 @@ export function buildCustomerDetailRow(customer, customerEntries) {
     currentTenure: tenure.currentTenure,
     currentTenureAmount: tenure.currentTenureAmount ? formatCurrency(tenure.currentTenureAmount) : "--",
     pendingTenures: tenure.pendingTenures,
-    pendingTenuresLabel: tenure.pendingTenures.length ? tenure.pendingTenures.join(", ") : "—",
+    pendingTenuresLabel,
     balanceTenures: tenure.balanceTenures,
     balanceTenuresLabel: formatInstallmentNumberList(frequency, tenure.balanceTenures),
     unpaidInstallmentCount: tenure.unpaidInstallmentCount,

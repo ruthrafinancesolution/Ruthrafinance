@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { EMPLOYEE_ROOT_DAYS } from "../constants/employeeDays";
 import useAuth from "../hooks/useAuth";
 import useEmployeeCenterScope from "../hooks/useEmployeeCenterScope";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import { employeeMatchesCollector } from "../utils/employeeManagement";
-import { buildEmployeeCustomerSummary, getEmployeeCustomerSearchText } from "../utils/employeeCustomerSummary";
+import { buildEmployeeCustomerSummary } from "../utils/employeeCustomerSummary";
 
 function formatCurrency(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
@@ -43,7 +43,8 @@ function EmployeeCustomerMetricCard({ emoji, label, value, accent = "blue" }) {
   );
 }
 
-const LIST_STATUS_OPTIONS = [
+const LIST_STATUS_FILTER_OPTIONS = [
+  { key: "All", label: "All" },
   { key: "due-today", label: "Due Today" },
   { key: "pending", label: "Pending" },
   { key: "overdue", label: "Overdue" },
@@ -92,7 +93,6 @@ export default function EmployeeCustomersList() {
   const { profile } = useAuth();
   const { customers, entries, loading } = useLoanDataSync();
   const { allCenters, hasAssignedCenter, scopeCustomers } = useEmployeeCenterScope();
-  const [query, setQuery] = useState("");
   const [collectionFilter, setCollectionFilter] = useState("All");
 
   const entriesByCustomerId = useMemo(() => {
@@ -125,13 +125,10 @@ export default function EmployeeCustomersList() {
   }, [allCenters, entriesByCustomerId, readyCustomers]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return customerRows.filter((row) => {
-      const matchesSearch = !q || getEmployeeCustomerSearchText(row.customer, row, allCenters).includes(q);
-      const matchesCollection = collectionFilter === "All" || row.listStatus === collectionFilter;
-      return matchesSearch && matchesCollection;
+      return collectionFilter === "All" || row.listStatus === collectionFilter;
     });
-  }, [allCenters, collectionFilter, query, customerRows]);
+  }, [collectionFilter, customerRows]);
 
   const collectionMetrics = useMemo(() => {
     const scopedIds = new Set(readyCustomers.map((customer) => customer.customerId));
@@ -155,7 +152,7 @@ export default function EmployeeCustomersList() {
     const todayTarget = collectedToday + pendingAmount;
     const progressPercent = todayTarget > 0 ? Math.min(100, Math.round((collectedToday / todayTarget) * 100)) : 0;
     const pendingTenureCustomers = customerRows.filter(
-      (row) => row.pendingTenuresLabel && row.pendingTenuresLabel !== "—"
+      (row) => row.pendingTenuresLabel && row.pendingTenuresLabel !== "—" && row.pendingTenuresLabel !== "0"
     ).length;
     const partiallyPaidCustomers = customerRows.filter((row) => row.listStatus === "partially").length;
 
@@ -234,39 +231,22 @@ export default function EmployeeCustomersList() {
         </div>
       </section>
 
-      <div className="employee-customers-toolbar mb-2 flex min-w-0 items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => setCollectionFilter("All")}
-          className={`inline-flex h-9 shrink-0 items-center justify-center rounded-xl border px-2.5 text-xs font-semibold transition ${
-            collectionFilter === "All"
-              ? "border-blue-600 bg-blue-600 text-white"
-              : "border-slate-200/90 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50"
-          }`}
-        >
-          Show all
-        </button>
-        <select
-          value={collectionFilter === "All" ? "" : collectionFilter}
-          onChange={(event) => setCollectionFilter(event.target.value || "All")}
-          className="app-select employee-customers-filter h-9 shrink-0 rounded-xl bg-white text-xs font-medium text-slate-800"
-        >
-          <option value="">Filter status</option>
-          {LIST_STATUS_OPTIONS.map((option) => (
-            <option key={option.key} value={option.key}>
+      <div className="employee-customers-toolbar mb-2 min-w-0 overflow-x-auto pb-0.5">
+        <div className="flex w-max min-w-full gap-1 rounded-xl border border-slate-200/90 bg-white p-0.5 shadow-sm">
+          {LIST_STATUS_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setCollectionFilter(option.key)}
+              className={`inline-flex h-9 shrink-0 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition sm:px-3 sm:text-sm ${
+                collectionFilter === option.key
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               {option.label}
-            </option>
+            </button>
           ))}
-        </select>
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name, phone…"
-            className="employee-customers-search h-9 w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-2.5 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[var(--app-accent)] focus:ring-2 focus:ring-slate-300/40"
-          />
         </div>
       </div>
 
@@ -305,10 +285,10 @@ export default function EmployeeCustomersList() {
                   {row.customerName || "Unnamed"}
                 </p>
                 <p className="employee-field-value min-w-0 truncate whitespace-nowrap tabular-nums text-slate-950">
-                  {row.currentDueAmount || "—"}
+                  {row.currentDueAmount ?? "—"}
                 </p>
-                <p className="employee-field-value min-w-0 truncate whitespace-nowrap text-slate-800">
-                  {row.pendingTenuresLabel || "—"}
+                <p className="employee-field-value min-w-0 truncate whitespace-nowrap tabular-nums text-slate-800">
+                  {row.pendingTenuresLabel ?? "—"}
                 </p>
                 <CustomerStatusValue listStatus={row.listStatus} />
                 <ChevronRight className="h-5 w-5 shrink-0 justify-self-end text-slate-400" aria-hidden="true" />
@@ -319,8 +299,8 @@ export default function EmployeeCustomersList() {
       </div>
 
       {!loading && filtered.length === 0 ? (
-        <p className="employee-customers-empty" title="No customers match your search or collection status.">
-          No customers match search or status
+        <p className="employee-customers-empty" title="No customers match the selected status.">
+          No customers match this status
         </p>
       ) : null}
     </div>
