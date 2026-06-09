@@ -1,4 +1,4 @@
-import { Home, IndianRupee, Plus, UsersRound } from "lucide-react";
+import { Home, IndianRupee, UserPlus, UsersRound } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 function navClass(isActive) {
@@ -16,7 +16,7 @@ export default function EmployeeMobileNav() {
     location.pathname === "/employee/customers" ||
     /^\/employee\/customers\/[^/]+/.test(location.pathname);
 
-  const entryActive = location.pathname === "/employee/profile";
+  const registerActive = location.pathname === "/employee/profile";
 
   return (
     <nav
@@ -38,9 +38,9 @@ export default function EmployeeMobileNav() {
         <span className="employee-tab-label text-[10px] font-semibold tracking-wide">Collection</span>
       </NavLink>
 
-      <NavLink to="/employee/profile" className={() => navClass(entryActive)}>
-        <Plus className="employee-tab-icon h-[22px] w-[22px] shrink-0" />
-        <span className="employee-tab-label text-[10px] font-semibold tracking-wide">Entry</span>
+      <NavLink to="/employee/profile" className={() => navClass(registerActive)}>
+        <UserPlus className="employee-tab-icon h-[22px] w-[22px] shrink-0" />
+        <span className="employee-tab-label text-[10px] font-semibold tracking-wide">Register</span>
       </NavLink>
     </nav>
   );

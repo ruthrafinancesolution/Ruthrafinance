@@ -2221,8 +2221,8 @@ export async function createCustomer({
   if (createdByUid) {
     await createNotification({
       type: "approval_notification",
-      title: "Customer saved",
-      message: `${displayName} (${customerId}) was saved. You can submit a loan request from New Loan.`,
+      title: "Customer submitted",
+      message: `${displayName} (${customerId}) was saved and is pending admin approval.`,
       audienceRole: "employee",
       customerId,
       customerName: displayName,
@@ -2240,6 +2240,94 @@ export async function createCustomer({
   });
 
   return { customerId };
+}
+
+export async function approveCustomer(customerId, { reviewerName = "Admin" } = {}) {
+  const normalizedId = normalizeCustomerId(customerId);
+  const customerRef = doc(db, "customers", normalizedId);
+  const customerSnap = await getDoc(customerRef);
+  if (!customerSnap.exists()) {
+    throw new Error("Customer not found.");
+  }
+
+  const customer = customerSnap.data();
+  if (String(customer.approvalStatus || "").toLowerCase() !== "pending") {
+    throw new Error("Only pending customers can be approved.");
+  }
+
+  const approvedAt = new Date().toISOString();
+  const displayName = normalizeText(customer.customerName) || "Customer";
+
+  await updateDoc(customerRef, {
+    approvalStatus: "approved",
+    customerApprovedAt: approvedAt,
+  });
+
+  await createNotification({
+    type: "approval_notification",
+    title: "Customer approved",
+    message: `${displayName} (${normalizedId}) was approved. You can now apply for a loan.`,
+    audienceRole: "employee",
+    customerId: normalizedId,
+    customerName: displayName,
+    relatedId: normalizedId,
+  });
+
+  await createAuditLog({
+    action: "approve_customer",
+    entityType: "customer",
+    entityId: normalizedId,
+    message: `${displayName} was approved.`,
+    actorName: normalizeText(reviewerName) || "Admin",
+    actorRole: "admin",
+  });
+
+  return { customerId: normalizedId, approvedAt };
+}
+
+export async function rejectCustomer(customerId, { rejectionNote = "", reviewerName = "Admin" } = {}) {
+  const normalizedId = normalizeCustomerId(customerId);
+  const customerRef = doc(db, "customers", normalizedId);
+  const customerSnap = await getDoc(customerRef);
+  if (!customerSnap.exists()) {
+    throw new Error("Customer not found.");
+  }
+
+  const customer = customerSnap.data();
+  if (String(customer.approvalStatus || "").toLowerCase() !== "pending") {
+    throw new Error("Only pending customers can be rejected.");
+  }
+
+  const rejectedAt = new Date().toISOString();
+  const note = normalizeText(rejectionNote);
+  const displayName = normalizeText(customer.customerName) || "Customer";
+
+  await updateDoc(customerRef, {
+    approvalStatus: "rejected",
+    customerRejectedAt: rejectedAt,
+    ...(note ? { customerRejectionNote: note } : {}),
+  });
+
+  await createNotification({
+    type: "approval_notification",
+    title: "Customer rejected",
+    message: `${displayName} (${normalizedId}) was rejected.${note ? ` Note: ${note}` : ""}`,
+    audienceRole: "employee",
+    customerId: normalizedId,
+    customerName: displayName,
+    relatedId: normalizedId,
+  });
+
+  await createAuditLog({
+    action: "reject_customer",
+    entityType: "customer",
+    entityId: normalizedId,
+    message: `${displayName} was rejected.`,
+    actorName: normalizeText(reviewerName) || "Admin",
+    actorRole: "admin",
+  });
+
+  return { customerId: normalizedId, rejectedAt };
 }
 
 /**
@@ -2881,6 +2969,17 @@ export async function createLoanRequest({
     throw new Error("Customer not found.");
   }
   const customer = customerSnap.data();
+
+  if (String(customer.approvalStatus || "pending").toLowerCase() !== "approved") {
+    throw new Error("This customer is not approved yet. Wait for admin approval before applying for a loan.");
+  }
+
+  const activeLoanAmount = Number(customer.loanAmount || 0);
+  const activeTotalPayable = Number(customer.totalPayable || 0);
+  const activeLoanStatus = String(customer.loanStatus || "").toLowerCase();
+  if (activeLoanAmount > 0 && activeTotalPayable > 0 && activeLoanStatus !== "closed") {
+    throw new Error("This customer already has an active loan.");
+  }
 
   const pendingQuery = query(collection(db, "loanRequests"), where("customerId", "==", normalizedCustomerId));
   const pendingSnap = await getDocs(pendingQuery);
