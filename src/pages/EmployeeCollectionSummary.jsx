@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, Clock3, Wallet } from "lucide-react";
 import useEmployeeCenterScope from "../hooks/useEmployeeCenterScope";
-import useAuth from "../hooks/useAuth";
-import { employeeMatchesCollector } from "../utils/employeeManagement";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 
 function formatCurrency(value) {
@@ -25,14 +23,13 @@ const APPROVAL_FILTER_OPTIONS = ["All", "Approved", "Pending"];
 
 export default function EmployeeCollectionSummary() {
   const { customers, entries, loading } = useLoanDataSync();
-  const { profile } = useAuth();
   const { scopeCustomers } = useEmployeeCenterScope();
   const [approvalFilter, setApprovalFilter] = useState("All");
 
   const { rows, stats } = useMemo(() => {
     const scoped = scopeCustomers(customers);
     const ids = new Set(scoped.map((c) => c.customerId));
-    const scopedEntries = entries.filter((e) => ids.has(e.customerId) && employeeMatchesCollector(profile, e));
+    const scopedEntries = entries.filter((e) => ids.has(e.customerId));
     const todayKey = new Date().toISOString().slice(0, 10);
     const pending = scopedEntries.filter((e) => normalizeApprovalStatus(e) !== "approved");
     const todayAll = scopedEntries.filter((e) => (e.collectionDate || "").slice(0, 10) === todayKey);
@@ -50,7 +47,7 @@ export default function EmployeeCollectionSummary() {
         todayAmount,
       },
     };
-  }, [customers, entries, profile, scopeCustomers]);
+  }, [customers, entries, scopeCustomers]);
 
   const filteredRows = useMemo(() => {
     if (approvalFilter === "Approved") {
@@ -138,6 +135,12 @@ export default function EmployeeCollectionSummary() {
                   <span className="font-semibold text-slate-800">{formatCurrency(e.amount)}</span>
                   <span>·</span>
                   <span>{e.collectionStatus || "—"}</span>
+                  {e.collectorName ? (
+                    <>
+                      <span>·</span>
+                      <span>{e.collectorName}</span>
+                    </>
+                  ) : null}
                   <span>·</span>
                   <span>{formatWhen(e)}</span>
                 </div>

@@ -2,10 +2,9 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { EMPLOYEE_ROOT_DAYS } from "../constants/employeeDays";
-import useAuth from "../hooks/useAuth";
 import useEmployeeCenterScope from "../hooks/useEmployeeCenterScope";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
-import { employeeMatchesCollector } from "../utils/employeeManagement";
+import { filterScopedApprovedEntries } from "../utils/scopedCollectionEntries";
 import { buildEmployeeCustomerSummary } from "../utils/employeeCustomerSummary";
 
 function formatCurrency(value) {
@@ -68,7 +67,7 @@ function defaultDayLabel(selectedDay) {
 /** One of: due-today | pending | overdue | collected | partially */
 function resolveEmployeeListStatus(row) {
   if (row.isCurrentTenureCollected) return "collected";
-  if (row.collectionStatus === "Partial Payment") return "partially";
+  if (row.isCurrentTenurePartiallyPaid) return "partially";
   if (row.hasPendingApproval) return "pending";
   if (row.dueStatusKey === "overdue") return "overdue";
   if (row.dueStatusKey === "due-today") return "due-today";
@@ -90,7 +89,6 @@ function CustomerStatusValue({ listStatus }) {
 
 export default function EmployeeCustomersList() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
   const { customers, entries, loading } = useLoanDataSync();
   const { allCenters, hasAssignedCenter, scopeCustomers } = useEmployeeCenterScope();
   const [collectionFilter, setCollectionFilter] = useState("All");
@@ -134,10 +132,7 @@ export default function EmployeeCustomersList() {
     const scopedIds = new Set(readyCustomers.map((customer) => customer.customerId));
     const todayKey = new Date().toISOString().slice(0, 10);
 
-    const collectedToday = entries.reduce((sum, entry) => {
-      if (!scopedIds.has(entry.customerId)) return sum;
-      if (String(entry.approvalStatus || "").toLowerCase() !== "approved") return sum;
-      if (!employeeMatchesCollector(profile, entry)) return sum;
+    const collectedToday = filterScopedApprovedEntries(entries, scopedIds).reduce((sum, entry) => {
       const collectionDate = String(entry.collectionDate || entry.submittedAt || "").slice(0, 10);
       if (collectionDate !== todayKey) return sum;
       return sum + Number(entry.amount || 0);
@@ -154,7 +149,7 @@ export default function EmployeeCustomersList() {
     const pendingTenureCustomers = customerRows.filter(
       (row) => row.pendingTenuresLabel && row.pendingTenuresLabel !== "—" && row.pendingTenuresLabel !== "0"
     ).length;
-    const partiallyPaidCustomers = customerRows.filter((row) => row.listStatus === "partially").length;
+    const partiallyPaidCustomers = customerRows.filter((row) => row.isCurrentTenurePartiallyPaid).length;
 
     return {
       todayTarget,
@@ -164,7 +159,7 @@ export default function EmployeeCustomersList() {
       pendingTenureCustomers,
       partiallyPaidCustomers,
     };
-  }, [customerRows, entries, profile, readyCustomers]);
+  }, [customerRows, entries, readyCustomers]);
 
   const openCustomerDetail = (row) => {
     const day = defaultDayLabel(row.customer.selectedDay);

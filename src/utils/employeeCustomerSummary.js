@@ -9,6 +9,7 @@ import {
   getNextDueDateDisplay,
   hasCurrentTenurePendingApproval,
   isCurrentTenureCollected,
+  isCurrentTenurePartiallyPaid,
 } from "./employeeCollectionDetails.js";
 
 export function getEmployeeCustomerCenterLabel(customer, allCenters = []) {
@@ -69,6 +70,7 @@ export function buildEmployeeCustomerSummary(customer, customerEntries = [], all
     dueStatusKey: listDisplay.statusKey,
     collectionStatus: getCurrentTenureCollectionStatus(customer, customerEntries),
     isCurrentTenureCollected: isCurrentTenureCollected(customer, customerEntries),
+    isCurrentTenurePartiallyPaid: isCurrentTenurePartiallyPaid(customer, customerEntries),
     hasPendingApproval: hasCurrentTenurePendingApproval(customer, customerEntries),
     currentTenureCollectedAmount: getCurrentTenureCollectedAmount(customer, customerEntries),
     currentTenureCollectedDisplay: getCurrentTenureCollectedDisplay(customer, customerEntries),

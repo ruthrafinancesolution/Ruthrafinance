@@ -232,15 +232,6 @@ function isEntryPendingApproval(entry) {
   return status !== "approved" && status !== "rejected";
 }
 
-/** Partial Payment entry that is pending or admin-approved (not rejected). */
-function hasActivePartialPaymentEntry(customerEntries) {
-  return customerEntries.some((entry) => {
-    const approval = String(entry?.approvalStatus || "pending").toLowerCase();
-    if (approval === "rejected") return false;
-    return normalizeEmployeeCollectionStatus(entry.collectionStatus) === "Partial Payment";
-  });
-}
-
 export function getCurrentTenurePendingApprovalEntry(customer, customerEntries) {
   const tenure = computeTenureBreakdown(customer, customerEntries);
   const currentNumber = tenure.currentTenureNumber || 0;
@@ -298,7 +289,13 @@ export function isCurrentTenureCollected(customer, customerEntries) {
   const tenure = computeTenureBreakdown(customer, customerEntries);
   const schedule = buildInstallmentSchedule(customer, customerEntries);
   const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
-  return currentItem ? isInstallmentPaid(currentItem) : false;
+  if (!currentItem) return false;
+  if (isInstallmentPaid(currentItem)) return true;
+  return (
+    Number(currentItem.dueAmount || 0) > 0 &&
+    Number(currentItem.pendingAmount || 0) === 0 &&
+    Number(currentItem.paidAmount || 0) > 0
+  );
 }
 
 export function isCurrentTenurePartiallyPaid(customer, customerEntries) {
@@ -307,9 +304,19 @@ export function isCurrentTenurePartiallyPaid(customer, customerEntries) {
   const tenure = computeTenureBreakdown(customer, customerEntries);
   const schedule = buildInstallmentSchedule(customer, customerEntries);
   const currentItem = schedule.find((item) => item.installmentNumber === tenure.currentTenureNumber);
-  if (currentItem && Number(currentItem.paidAmount || 0) > 0) return true;
+  if (!currentItem) return false;
 
-  return hasActivePartialPaymentEntry(customerEntries);
+  // All approved entries (employee + admin) are allocated in the schedule.
+  if (Number(currentItem.paidAmount || 0) > 0 && !isInstallmentPaid(currentItem)) {
+    return true;
+  }
+
+  // Pending partial entry for the current tenure (not yet counted in schedule totals).
+  const pendingEntry = getCurrentTenurePendingApprovalEntry(customer, customerEntries);
+  return (
+    Boolean(pendingEntry) &&
+    normalizeEmployeeCollectionStatus(pendingEntry.collectionStatus) === "Partial Payment"
+  );
 }
 
 export function getCurrentTenureCollectionStatus(customer, customerEntries) {

@@ -13,7 +13,7 @@ import { useLoanDataSync } from "../../context/LoanDataSyncContext";
 import useAuth from "../../hooks/useAuth";
 import { LOAN_CENTERS_CHANGED_EVENT } from "../../constants/loanCenterStorage";
 import { loadLoanCenters } from "../../constants/dayCenters";
-import { listEmployees } from "../../services/userAuth";
+import { listEmployees, recordApprovedCollectionEntry } from "../../services/userAuth";
 import {
   employeeHasWholeDayAssignment,
   getAssignedSubCentersForDayCenter,
@@ -101,6 +101,8 @@ import {
   commitPaidDraftEntry,
   loadCollectionReportPaidState,
   makePaidEntryKey,
+  parsePaidEntryKey,
+  sanitizePaidAmount,
   saveCollectionReportPaidState,
 } from "../../utils/collectionReportPaidStorage";
 import { normalizeCollectionFrequency } from "../../utils/loanTimelineDates";
@@ -295,6 +297,7 @@ export default function CollectionReportPanel() {
   const [printLoading, setPrintLoading] = useState(false);
   const [paidState, setPaidState] = useState(() => loadCollectionReportPaidState());
   const [pendingAmountRow, setPendingAmountRow] = useState(null);
+  const [entryPersistError, setEntryPersistError] = useState("");
   const paidInputRefs = useRef({});
   const [centersRevision, setCentersRevision] = useState(0);
   useEffect(() => {
@@ -522,9 +525,46 @@ export default function CollectionReportPanel() {
     }));
   };
 
-  const commitPaidAmountEntry = useCallback((entryKey) => {
-    setPaidState((current) => commitPaidDraftEntry(current, entryKey));
-  }, []);
+  const persistAdminCollectionEntry = useCallback(
+    async (entryKey, incrementAmount) => {
+      if (profile?.role !== "admin") return;
+      const amount = Math.round(Number(incrementAmount || 0));
+      if (amount <= 0) return;
+
+      const { customerId } = parsePaidEntryKey(entryKey);
+      const customer = customers.find((item) => item.customerId === customerId);
+      if (!customer) return;
+
+      const installmentDue = Number(customer.weeklyDue || customer.emiAmount || 0);
+      const collectionStatus =
+        installmentDue > 0 && amount < installmentDue ? "Partial Payment" : "Collected";
+
+      await recordApprovedCollectionEntry({
+        customerId,
+        customerName: customer.customerName,
+        amount,
+        collectionStatus,
+        collectorName: profile?.displayName || profile?.email || "Admin",
+        createdByUid: user?.uid || "",
+        note: "Recorded from collection report",
+      });
+    },
+    [customers, profile?.displayName, profile?.email, profile?.role, user?.uid]
+  );
+
+  const commitPaidAmountEntry = useCallback(
+    (entryKey) => {
+      const incrementAmount = sanitizePaidAmount(paidState.drafts?.[entryKey]);
+      setPaidState((current) => commitPaidDraftEntry(current, entryKey));
+
+      if (!incrementAmount) return;
+
+      persistAdminCollectionEntry(entryKey, incrementAmount).catch((error) => {
+        setEntryPersistError(error?.message || "Unable to save collection entry for employees.");
+      });
+    },
+    [paidState.drafts, persistAdminCollectionEntry]
+  );
 
   const handlePaidKeyDown = (event, entryKey, rowIndex) => {
     if (event.key !== "Enter") return;
@@ -621,6 +661,11 @@ export default function CollectionReportPanel() {
 
   return (
     <section className="app-panel min-w-0 p-5 md:p-6">
+      {entryPersistError ? (
+        <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          {entryPersistError}
+        </p>
+      ) : null}
       <div className="collection-report-top-bar flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
         <div className="collection-report-summary-grid grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:flex-[0_1_68%] xl:flex-[0_1_72%]">
           <ReportSummaryCard

@@ -4,8 +4,8 @@ import { CheckCircle2, Clock3, FilePlus2, IndianRupee, UserPlus, UsersRound } fr
 import EmployeeAddCustomerModal from "../components/employee/EmployeeAddCustomerModal";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import useEmployeeCenterScope from "../hooks/useEmployeeCenterScope";
-import useAuth from "../hooks/useAuth";
-import { employeeMatchesCollector } from "../utils/employeeManagement";
+import { isCurrentTenureCollected } from "../utils/employeeCollectionDetails";
+import { filterScopedApprovedEntries, groupEntriesByCustomerId } from "../utils/scopedCollectionEntries";
 
 function formatCurrency(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
@@ -141,7 +141,6 @@ function EmployeeStatCard({ icon: Icon, label, value, accent = "blue" }) {
 export default function EmployeeHome() {
   const navigate = useNavigate();
   const { customers, entries, loading } = useLoanDataSync();
-  const { profile } = useAuth();
   const { assignedCenters, assignedCentersLabel, allCenters, hasAssignedCenter, scopeCustomers } =
     useEmployeeCenterScope();
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
@@ -150,15 +149,13 @@ export default function EmployeeHome() {
   const metrics = useMemo(() => {
     const scoped = scopeCustomers(customers);
     const ids = new Set(scoped.map((c) => c.customerId));
-    const approvedEntries = entries.filter(
-      (e) => e.approvalStatus === "approved" && ids.has(e.customerId) && employeeMatchesCollector(profile, e)
-    );
+    const approvedEntries = filterScopedApprovedEntries(entries, ids);
+    const entriesByCustomerId = groupEntriesByCustomerId(entries);
     const periodEntries =
       periodFilter === "All"
         ? approvedEntries.filter((e) => entryMatchesPeriod(e, "Today"))
         : approvedEntries.filter((e) => entryMatchesPeriod(e, periodFilter));
     const periodCollected = periodEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-    const periodCollectedIds = new Set(periodEntries.map((e) => e.customerId));
 
     const pendingScope =
       periodFilter === "All"
@@ -168,7 +165,10 @@ export default function EmployeeHome() {
           })
         : scoped.filter((c) => dateMatchesPeriod(c.dueDate, periodFilter));
 
-    const pendingCollection = pendingScope.filter((c) => !periodCollectedIds.has(c.customerId)).length;
+    const pendingCollection = pendingScope.filter((customer) => {
+      const customerEntries = entriesByCustomerId.get(customer.customerId) || [];
+      return !isCurrentTenureCollected(customer, customerEntries);
+    }).length;
     const totalCollected = approvedEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
     return {
@@ -177,17 +177,14 @@ export default function EmployeeHome() {
       pendingCollection,
       totalCollected,
     };
-  }, [customers, entries, periodFilter, profile, scopeCustomers]);
+  }, [customers, entries, periodFilter, scopeCustomers]);
 
   const recentPaid = useMemo(() => {
     const scoped = scopeCustomers(customers);
     const ids = new Set(scoped.map((c) => c.customerId));
     const nameById = new Map(scoped.map((c) => [c.customerId, c.customerName || c.customerId]));
 
-    const paid = entries.filter((e) => {
-      if (!ids.has(e.customerId)) return false;
-      if (!employeeMatchesCollector(profile, e)) return false;
-      if (e.approvalStatus !== "approved") return false;
+    const paid = filterScopedApprovedEntries(entries, ids).filter((e) => {
       if (Number(e.amount || 0) <= 0) return false;
       const st = String(e.collectionStatus || "Collected").toLowerCase();
       if (st === "skipped" || st === "rescheduled") return false;
@@ -201,14 +198,18 @@ export default function EmployeeHome() {
       return tb - ta;
     });
 
-    return paid.slice(0, 12).map((e) => ({
-      key: e.entryId || `${e.customerId}-${e.collectionDate}-${e.submittedAt}`,
-      name: e.customerName || nameById.get(e.customerId) || e.customerId,
-      amount: Number(e.amount || 0),
-      status: e.collectionStatus || "Collected",
-      whenLabel: formatRecentWhen(e),
-    }));
-  }, [customers, entries, periodFilter, profile, scopeCustomers]);
+    return paid.slice(0, 12).map((e) => {
+      const collector = String(e.collectorName || "").trim();
+      const isAdminEntry = collector.toLowerCase() === "admin" || String(e.entrySource || "").includes("admin");
+      return {
+        key: e.entryId || `${e.customerId}-${e.collectionDate}-${e.submittedAt}`,
+        name: e.customerName || nameById.get(e.customerId) || e.customerId,
+        amount: Number(e.amount || 0),
+        status: isAdminEntry ? `Admin · ${e.collectionStatus || "Collected"}` : e.collectionStatus || "Collected",
+        whenLabel: formatRecentWhen(e),
+      };
+    });
+  }, [customers, entries, periodFilter, scopeCustomers]);
 
   return (
     <div className="employee-page">

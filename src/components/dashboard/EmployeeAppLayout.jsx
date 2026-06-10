@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import BrandLogo from "../BrandLogo";
+import EmployeeHeaderNotifications from "../employee/EmployeeHeaderNotifications";
 import EmployeeHeaderProfileMenu from "../employee/EmployeeHeaderProfileMenu";
 import EmployeeMobileNav from "./EmployeeMobileNav";
 
@@ -19,7 +20,10 @@ export default function EmployeeAppLayout() {
             <p className="truncate text-xs font-semibold text-slate-800 sm:text-sm">Collector</p>
           </div>
         </NavLink>
-        <EmployeeHeaderProfileMenu />
+        <div className="flex shrink-0 items-center gap-2">
+          <EmployeeHeaderNotifications />
+          <EmployeeHeaderProfileMenu />
+        </div>
       </header>
 
       <div className="employee-main-pad mx-auto flex w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-3 pt-3 sm:px-4 sm:pt-4">

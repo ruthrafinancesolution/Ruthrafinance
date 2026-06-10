@@ -3660,6 +3660,122 @@ export async function createCustomerAmountEntry({
   };
 }
 
+/**
+ * Records an admin-approved collection entry so employee apps see the payment immediately.
+ */
+export async function recordApprovedCollectionEntry({
+  customerId,
+  customerName,
+  amount,
+  note = "",
+  createdByUid = "",
+  collectorName = "Admin",
+  paymentMethod = "Cash",
+  collectionStatus = "Collected",
+  collectionDate,
+  entrySource = "admin_collection_report",
+}) {
+  const principal = Math.round(Number(amount || 0));
+  if (principal <= 0) {
+    throw new Error("Collection amount must be greater than zero.");
+  }
+
+  const normalizedCustomerId = normalizeText(customerId);
+  if (!normalizedCustomerId) {
+    throw new Error("Customer is required.");
+  }
+
+  const entryId = `AMT-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random()
+    .toString(36)
+    .slice(2, 8)
+    .toUpperCase()}`;
+  const now = new Date();
+  const approvedAt = now.toISOString();
+  const collectionDay = normalizeText(collectionDate) || now.toISOString().slice(0, 10);
+  const actorName = normalizeText(collectorName) || "Admin";
+  const displayName = normalizeText(customerName) || "Customer";
+  const status = normalizeText(collectionStatus) || "Collected";
+
+  await setDoc(doc(db, "customerAmounts", entryId), {
+    entryId,
+    customerId: normalizedCustomerId,
+    customerName: displayName,
+    amount: principal,
+    note: normalizeText(note),
+    createdBy: normalizeText(createdByUid) || "admin",
+    collectorName: actorName,
+    paymentMethod: normalizeText(paymentMethod) || "Cash",
+    collectionStatus: status,
+    collectionDate: collectionDay,
+    approvalStatus: "approved",
+    approvedAt,
+    entrySource: normalizeText(entrySource),
+    createdAt: serverTimestamp(),
+    submittedAt: approvedAt,
+  });
+
+  const customerRef = doc(db, "customers", normalizedCustomerId);
+  const applicationQuery = query(collection(db, "loanApplications"), where("customerId", "==", normalizedCustomerId));
+  const applicationSnap = await getDocs(applicationQuery);
+
+  await updateDoc(customerRef, {
+    approvalStatus: "approved",
+    amountStatus: "approved",
+    latestAmountEntryId: entryId,
+    latestAmount: principal,
+    latestAmountApprovedAt: approvedAt,
+  });
+
+  await Promise.all(
+    applicationSnap.docs.map((applicationDoc) =>
+      updateDoc(doc(db, "loanApplications", applicationDoc.id), {
+        approvalStatus: "approved",
+        amountStatus: "approved",
+        latestAmountEntryId: entryId,
+        latestAmount: principal,
+        latestAmountApprovedAt: approvedAt,
+      })
+    )
+  );
+
+  await createNotification({
+    type: "approval_notification",
+    title: "Collection recorded",
+    message: `${displayName} payment of ₹${principal.toLocaleString("en-IN")} was recorded by ${actorName}.`,
+    audienceRole: "employee",
+    customerId: normalizedCustomerId,
+    customerName: displayName,
+    relatedId: entryId,
+  });
+
+  await createAuditLog({
+    action: "record_approved_collection_entry",
+    entityType: "collection",
+    entityId: entryId,
+    message: `${displayName} collection of ₹${principal.toLocaleString("en-IN")} was recorded by ${actorName}.`,
+    actorName,
+    actorRole: "admin",
+  });
+
+  await recordEmiCollectionLedgerEntry(
+    {
+      entryId,
+      customerId: normalizedCustomerId,
+      customerName: displayName,
+      amount: principal,
+      collectionDate: collectionDay,
+      collectorName: actorName,
+      paymentMethod: normalizeText(paymentMethod) || "Cash",
+      collectionStatus: status,
+    },
+    approvedAt
+  ).catch((ledgerErr) => {
+    console.error("wallet ledger emi:", ledgerErr);
+  });
+
+  return { entryId, approvedAt, submittedAt: approvedAt };
+}
+
 export async function listCustomerAmountEntries(customerId) {
   const amountQuery = query(collection(db, "customerAmounts"), where("customerId", "==", customerId));
   const snapshot = await getDocs(amountQuery);
@@ -3742,6 +3858,17 @@ export async function approveCustomerAmountEntry(entryId) {
     customerName: entry.customerName,
     relatedId: entryId,
   });
+
+  await createNotification({
+    type: "approval_notification",
+    title: "Collection approved",
+    message: `${entry.customerName || "Customer"} collection of ₹${Number(entry.amount || 0).toLocaleString("en-IN")} was approved by admin.`,
+    audienceRole: "employee",
+    customerId: entry.customerId,
+    customerName: entry.customerName,
+    relatedId: entryId,
+  });
+
   await createAuditLog({
     action: "approve_collection_entry",
     entityType: "collection",
@@ -3780,7 +3907,7 @@ export async function rejectCustomerAmountEntry(entryId, { rejectionNote = "" } 
   });
 
   await createNotification({
-    type: "approval_notification",
+    type: "reject_notification",
     title: "Collection rejected",
     message: `${entry.customerName || "Customer"} collection entry was rejected.`,
     audienceRole: "admin",
@@ -3788,6 +3915,17 @@ export async function rejectCustomerAmountEntry(entryId, { rejectionNote = "" } 
     customerName: entry.customerName,
     relatedId: entryId,
   });
+
+  await createNotification({
+    type: "reject_notification",
+    title: "Collection rejected",
+    message: `${entry.customerName || "Customer"} collection was rejected by admin.${note ? ` Note: ${note}` : ""}`,
+    audienceRole: "employee",
+    customerId: entry.customerId,
+    customerName: entry.customerName,
+    relatedId: entryId,
+  });
+
   await createAuditLog({
     action: "reject_collection_entry",
     entityType: "collection",
