@@ -37,16 +37,16 @@ import {
   formatCurrency,
 } from "../../utils/employeeCollectionDetails";
 const REPORT_COLUMNS = [
-  { key: "serial", label: "S.NO", width: "3.5rem", align: "center" },
-  { key: "customerId", label: "CUSTOMER ID", width: "10rem", align: "left", truncate: true },
-  { key: "customerName", label: "CUSTOMER NAME", width: "10rem", align: "left", truncate: true },
-  { key: "phoneNumber", label: "PHONE NUMBER", width: "9rem", align: "left", truncate: true },
+  { key: "serial", label: "S.NO", width: "3rem", align: "center", compact: true },
+  { key: "customerId", label: "CUSTOMER ID", width: "5.25rem", align: "left", truncate: true, compact: true },
+  { key: "customerName", label: "CUSTOMER NAME", width: "7.5rem", align: "left", truncate: true, compact: true },
+  { key: "phoneNumber", label: "PHONE NUMBER", width: "8.5rem", align: "left", truncate: true },
   { key: "nomineeName", label: "NOMINEE NAME", width: "9rem", align: "left", truncate: true },
   { key: "loanDate", label: "LOAN DATE", width: "7rem", align: "left" },
   { key: "currentTenure", label: "CURRENT TENURE", width: "8.5rem", align: "center" },
   { key: "currentDueAmount", label: "CURRENT DUE", width: "7.5rem", align: "right" },
   { key: "pendingTenuresLabel", label: "PENDING", width: "6rem", align: "center", truncate: true },
-  { key: "pendingAmountDisplay", label: "PENDING AMOUNT", width: "9rem", align: "right", clickable: true },
+  { key: "pendingAmountDisplay", label: "TOTAL PENDING", width: "9rem", align: "right", clickable: true },
   { key: "balanceAmount", label: "BALANCE TENURE", width: "8rem", align: "right" },
   { key: "paid", label: "PAID", width: "8rem", align: "right" },
   { key: "entry", label: "ENTRY", width: "8rem", align: "left", input: true },
@@ -64,13 +64,15 @@ function cellAlignClass(align) {
   return "text-left";
 }
 
-function reportTableHeaderClass(align) {
-  return `whitespace-nowrap border-b border-r border-slate-200 px-3 py-2.5 align-middle text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 last:border-r-0 ${cellAlignClass(align)}`;
+function reportTableHeaderClass(align, compact = false) {
+  const pad = compact ? "px-2" : "px-3";
+  return `whitespace-nowrap border-b border-r border-slate-200 ${pad} py-2.5 align-middle text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 last:border-r-0 ${cellAlignClass(align)}`;
 }
 
-function reportTableBodyClass(align, extra = "", { truncate = false } = {}) {
+function reportTableBodyClass(align, extra = "", { truncate = false, compact = false } = {}) {
+  const pad = compact ? "px-2" : "px-3";
   const clipClass = truncate ? "max-w-0 overflow-hidden" : "whitespace-nowrap";
-  return `${clipClass} border-r border-slate-100 px-3 py-2.5 align-middle last:border-r-0 ${cellAlignClass(align)} ${extra}`.trim();
+  return `${clipClass} border-r border-slate-100 ${pad} py-2.5 align-middle last:border-r-0 ${cellAlignClass(align)} ${extra}`.trim();
 }
 
 function reportTableCellContent(value, { truncate = false, title } = {}) {
@@ -837,7 +839,7 @@ export default function CollectionReportPanel() {
             <thead className="sticky top-0 z-[1] bg-slate-50/95 backdrop-blur-sm">
               <tr>
                 {REPORT_COLUMNS.map((column) => (
-                  <th key={column.key} className={reportTableHeaderClass(column.align)}>
+                  <th key={column.key} className={reportTableHeaderClass(column.align, column.compact)}>
                     {column.label}
                   </th>
                 ))}
@@ -876,7 +878,7 @@ export default function CollectionReportPanel() {
                           : "";
                       if (column.key === "serial") {
                         return (
-                          <td key={column.key} className={reportTableBodyClass(column.align, "tabular-nums text-slate-700")}>
+                          <td key={column.key} className={reportTableBodyClass(column.align, "tabular-nums text-slate-700", { compact: column.compact })}>
                             {index + 1}
                           </td>
                         );
@@ -988,7 +990,7 @@ export default function CollectionReportPanel() {
                           className={reportTableBodyClass(
                             column.align,
                             `${isNumeric ? "tabular-nums" : ""} ${alertPrintClass} ${alertCellBgClass} ${alertHoverClass} ${baseTextClass}`.trim(),
-                            { truncate: column.truncate }
+                            { truncate: column.truncate, compact: column.compact }
                           )}
                         >
                           {column.key === "customerName" && row.customerId ? (

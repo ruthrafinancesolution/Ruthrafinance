@@ -61,7 +61,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile toggle button */}
-      <div className="md:hidden fixed left-0 top-0 z-50 p-3 supports-[padding:max(0px)]:left-[max(0px,env(safe-area-inset-left))] supports-[padding:max(0px)]:top-[max(0px,env(safe-area-inset-top))]">
+      <div className="admin-mobile-header-menu md:hidden">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}

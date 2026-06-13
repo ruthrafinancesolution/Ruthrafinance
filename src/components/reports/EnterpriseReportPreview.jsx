@@ -366,8 +366,8 @@ export default function EnterpriseReportPreview({
           <span className="rotate-[-24deg] text-[4.5rem] font-black uppercase tracking-[0.35em] text-slate-900 sm:text-[6rem]">RFS</span>
         </div>
 
-        <div className="relative flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-teal-50/50 px-3 py-2.5 sm:px-4 print:hidden">
-          <ExportToolbar className="min-w-0 flex-wrap">
+        <div className="erp-preview-toolbar relative flex flex-shrink-0 flex-col gap-2 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-teal-50/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4 print:hidden">
+          <ExportToolbar className="min-w-0 w-full sm:w-auto">
             {onDownloadPdf ? (
               <ExportToolbarButton variant="pdf" loading={pdfLoading} disabled={pdfLoading} onClick={() => void handlePdfClick()}>
                 PDF
@@ -386,7 +386,8 @@ export default function EnterpriseReportPreview({
               onClick={() => setPrintPreviewMode((v) => !v)}
               className={printPreviewMode ? "border-teal-300 bg-teal-50 text-teal-900" : ""}
             >
-              {printPreviewMode ? "Paged view" : "Print preview"}
+              <span className="sm:hidden">{printPreviewMode ? "Paged" : "Preview"}</span>
+              <span className="hidden sm:inline">{printPreviewMode ? "Paged view" : "Print preview"}</span>
             </ExportToolbarButton>
             <ExportToolbarButton variant="neutral" icon={Share2} onClick={() => void handleShare()}>
               Share
@@ -395,7 +396,7 @@ export default function EnterpriseReportPreview({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700"
+            className="erp-preview-close-btn inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700 sm:w-auto"
           >
             <X className="h-3.5 w-3.5" />
             Close

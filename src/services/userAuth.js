@@ -659,6 +659,7 @@ async function buildLoanApplicationRecord({
     approvalStatus: "pending",
     amountStatus: "open",
     loanApprovedAt: null,
+    loanAppliedAt: now.toISOString(),
     createdAt: serverTimestamp(),
     submittedAt: now.toISOString(),
   };

@@ -6,9 +6,12 @@ import CustomerApprovalsPanel from "../components/loan/CustomerApprovalsPanel";
 import LoanRequestsPanel from "../components/loan/LoanRequestsPanel";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import { DEFAULT_DAY_CENTERS, loadLoanCenters } from "../constants/dayCenters";
-import { isActiveCustomerRecord } from "../utils/recordFlags";
+import { mergeCustomersWithLoanApplications } from "../utils/collectionCustomerUtils";
+import { hasAppliedForLoan } from "../utils/customerSheets";
+import { isActiveCustomerRecord, isRecordDeleted } from "../utils/recordFlags";
 
 const defaultCenters = DEFAULT_DAY_CENTERS;
+const RECENT_LOAN_LOOKBACK_DAYS = 2;
 
 /** Widths sum to 100% for table-layout:fixed — last cols need enough % so badges never force table past container */
 const sheetColumns = [
@@ -110,10 +113,69 @@ function hasValidLoanApplied(customer) {
   return loanAmount > 0 && loanWeeks > 0 && weeklyDue > 0 && totalPayable > 0 && hasDates;
 }
 
+function hasLoanApplicationData(customer) {
+  if (hasAppliedForLoan(customer)) return true;
+  if (hasValidLoanApplied(customer)) return true;
+  const loanAmount = Number(customer?.loanAmount || 0);
+  const loanWeeks = Number(customer?.loanWeeks || 0);
+  const weeklyDue = Number(customer?.weeklyDue || customer?.emiAmount || 0);
+  return loanAmount > 0 && loanWeeks > 0 && weeklyDue > 0;
+}
+
+function getLoanActivityTimestamp(customer) {
+  const raw =
+    customer?.loanAppliedAt || customer?.loanApprovedAt || customer?.submittedAt || customer?.updatedAt || customer?.createdAt || "";
+  if (!raw) return null;
+  const date = typeof raw?.toDate === "function" ? raw.toDate() : new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isRecentLoanActivity(customer, lookbackDays = RECENT_LOAN_LOOKBACK_DAYS) {
+  const appliedAt = getLoanActivityTimestamp(customer);
+  if (!appliedAt) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+  cutoff.setHours(0, 0, 0, 0);
+  return appliedAt >= cutoff;
+}
+
+function compareLoanActivityDesc(left, right) {
+  const leftTime = getLoanActivityTimestamp(left)?.getTime() || 0;
+  const rightTime = getLoanActivityTimestamp(right)?.getTime() || 0;
+  return rightTime - leftTime;
+}
+
+function mapCustomerToLoanRow(customer, collectedAmountByCustomer, getRepaymentProfile) {
+  const profile = getRepaymentProfile(customer.customerId);
+  return {
+    customerId: customer.customerId,
+    customerName: customer.customerName || "Unnamed",
+    mobileNumber: customer.mobileNumber || "--",
+    selectedDay: customer.selectedDay || "--",
+    identityType: customer.identityType || "--",
+    identityNumber: customer.identityNumber || "--",
+    nomineeName: customer.nomineeName || "--",
+    loanAmount: Number(customer.loanAmount || 0),
+    loanWeeks: Number(customer.loanWeeks || 0),
+    weeklyDue: Number(customer.weeklyDue || customer.emiAmount || 0),
+    totalPayable: Number(customer.totalPayable || 0),
+    totalCollected: Number(collectedAmountByCustomer.get(customer.customerId) || 0),
+    outstanding: Math.max(
+      Number(customer.totalPayable || 0) - Number(collectedAmountByCustomer.get(customer.customerId) || 0),
+      0
+    ),
+    collectionFrequency: customer.collectionFrequency || "--",
+    disbursementDate: customer.disbursementDate || "--",
+    dueDate: customer.dueDate || "--",
+    approvalStatus: customer.approvalStatus || "pending",
+    profile,
+  };
+}
+
 export default function LoanApplyHome() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { customers, entries, loanRequests, loading } = useLoanDataSync();
+  const { customers, entries, loanRequests, loanApplications, loading } = useLoanDataSync();
   const tabParam = searchParams.get("tab");
   const mainTab =
     tabParam === "requests" ? "requests" : tabParam === "customers" ? "customers" : "apply";
@@ -140,9 +202,14 @@ export default function LoanApplyHome() {
   };
   const [centers] = useState(() => loadCenters());
 
+  const mergedCustomers = useMemo(
+    () => mergeCustomersWithLoanApplications(customers, loanApplications),
+    [customers, loanApplications]
+  );
+
   const activeCustomers = useMemo(
-    () => customers.filter(isActiveCustomerRecord),
-    [customers]
+    () => mergedCustomers.filter(isActiveCustomerRecord),
+    [mergedCustomers]
   );
   const amountEntries = entries;
   const [selectedDay, setSelectedDay] = useState(null);
@@ -278,70 +345,43 @@ export default function LoanApplyHome() {
   };
 
   const recentLoanRows = useMemo(() => {
-    return customers
-      .filter((customer) => hasValidLoanApplied(customer))
-      .sort((left, right) => {
-        const l = left.loanApprovedAt || left.submittedAt || "";
-        const r = right.loanApprovedAt || right.submittedAt || "";
-        return r.localeCompare(l);
-      })
+    const customerById = new Map(activeCustomers.map((customer) => [customer.customerId, customer]));
+    const recentByCustomer = new Map();
+
+    const consider = (customer) => {
+      const customerId = customer?.customerId;
+      if (!customerId || !hasLoanApplicationData(customer) || !isRecentLoanActivity(customer)) return;
+      const existing = recentByCustomer.get(customerId);
+      if (!existing || compareLoanActivityDesc(customer, existing) < 0) {
+        recentByCustomer.set(customerId, customer);
+      }
+    };
+
+    activeCustomers.forEach(consider);
+
+    loanApplications.forEach((application) => {
+      if (isRecordDeleted(application)) return;
+      const customerId = application?.customerId;
+      if (!customerId) return;
+      const base = customerById.get(customerId);
+      const merged = base
+        ? mergeCustomersWithLoanApplications([base], [application])[0]
+        : { ...application, customerId };
+      consider(merged);
+    });
+
+    return Array.from(recentByCustomer.values())
+      .sort(compareLoanActivityDesc)
       .slice(0, 25)
-      .map((customer) => {
-        const profile = getRepaymentProfile(customer.customerId);
-        return {
-          customerId: customer.customerId,
-          customerName: customer.customerName || "Unnamed",
-          mobileNumber: customer.mobileNumber || "--",
-          selectedDay: customer.selectedDay || "--",
-          identityType: customer.identityType || "--",
-          identityNumber: customer.identityNumber || "--",
-          nomineeName: customer.nomineeName || "--",
-          loanAmount: Number(customer.loanAmount || 0),
-          loanWeeks: Number(customer.loanWeeks || 0),
-          weeklyDue: Number(customer.weeklyDue || customer.emiAmount || 0),
-          totalPayable: Number(customer.totalPayable || 0),
-          totalCollected: Number(collectedAmountByCustomer.get(customer.customerId) || 0),
-          outstanding: Math.max(
-            Number(customer.totalPayable || 0) - Number(collectedAmountByCustomer.get(customer.customerId) || 0),
-            0
-          ),
-          collectionFrequency: customer.collectionFrequency || "--",
-          disbursementDate: customer.disbursementDate || "--",
-          dueDate: customer.dueDate || "--",
-          approvalStatus: customer.approvalStatus || "pending",
-          profile,
-        };
-      });
-  }, [customers, collectedAmountByCustomer]);
+      .map((customer) => mapCustomerToLoanRow(customer, collectedAmountByCustomer, getRepaymentProfile));
+  }, [activeCustomers, loanApplications, collectedAmountByCustomer]);
 
   const classicSheetRows = useMemo(() => {
     const sourceRows = selectedDay
-      ? filteredCustomers.filter((customer) => hasValidLoanApplied(customer)).map((customer) => {
-          const profile = getRepaymentProfile(customer.customerId);
-          return {
-            customerId: customer.customerId,
-            customerName: customer.customerName || "Unnamed",
-            mobileNumber: customer.mobileNumber || "--",
-            selectedDay: customer.selectedDay || "--",
-            identityType: customer.identityType || "--",
-            identityNumber: customer.identityNumber || "--",
-            nomineeName: customer.nomineeName || "--",
-            loanAmount: Number(customer.loanAmount || 0),
-            loanWeeks: Number(customer.loanWeeks || 0),
-            weeklyDue: Number(customer.weeklyDue || customer.emiAmount || 0),
-            totalPayable: Number(customer.totalPayable || 0),
-            totalCollected: Number(collectedAmountByCustomer.get(customer.customerId) || 0),
-            outstanding: Math.max(
-              Number(customer.totalPayable || 0) - Number(collectedAmountByCustomer.get(customer.customerId) || 0),
-              0
-            ),
-            collectionFrequency: customer.collectionFrequency || "--",
-            disbursementDate: customer.disbursementDate || "--",
-            dueDate: customer.dueDate || "--",
-            approvalStatus: customer.approvalStatus || "pending",
-            profile,
-          };
-        })
+      ? filteredCustomers
+          .filter((customer) => hasLoanApplicationData(customer))
+          .sort(compareLoanActivityDesc)
+          .map((customer) => mapCustomerToLoanRow(customer, collectedAmountByCustomer, getRepaymentProfile))
       : recentLoanRows;
 
     return sourceRows.map((row, index) => {
@@ -593,7 +633,7 @@ export default function LoanApplyHome() {
                 ? `Showing ${classicSheetRows.length} records for ${selectedCenter}`
                 : selectedDay
                   ? `Showing ${classicSheetRows.length} records for ${selectedDay}`
-                  : `Showing latest ${classicSheetRows.length} records`}
+                  : `Showing ${classicSheetRows.length} recent loan${classicSheetRows.length === 1 ? "" : "s"} (last ${RECENT_LOAN_LOOKBACK_DAYS} days)`}
             </p>
           </div>
 

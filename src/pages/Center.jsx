@@ -198,36 +198,46 @@ export default function Center() {
     return countCustomersForDayGroup(activeDayGroup, allCustomers);
   }, [activeDayGroup, allCustomers]);
 
-  function renderCustomerRow(customer, rowIndex) {
+  function getCustomerDisplayFields(customer) {
     const customerSheet = sheetRowById.get(customer.customerId);
-    const collected = customerSheet?.collected ?? 0;
-    const dueDate = customerSheet?.dueDate ?? formatDate(customer.dueDate);
-    const pending = customerSheet?.pendingWeeks ?? Math.max(Number(customer.loanWeeks || 0), 0);
+    return {
+      collected: customerSheet?.collected ?? 0,
+      dueDate: customerSheet?.dueDate ?? formatDate(customer.dueDate),
+      pending: customerSheet?.pendingWeeks ?? Math.max(Number(customer.loanWeeks || 0), 0),
+    };
+  }
+
+  function renderCustomerRow(customer, rowIndex) {
+    const { collected, dueDate, pending } = getCustomerDisplayFields(customer);
 
     return (
-      <tr key={customer.customerId} className="transition hover:bg-blue-50/30">
-        <td className="px-2 py-2.5 text-center text-xs font-semibold text-slate-400">{rowIndex}</td>
-        <td className="px-2 py-2.5">
+      <tr key={customer.customerId} className="center-customer-row transition hover:bg-blue-50/30">
+        <td className="center-customer-cell center-customer-cell--index">{rowIndex}</td>
+        <td className="center-customer-cell center-customer-cell--name">
           <CustomerDetailLink
             customerId={customer.customerId}
-            className="inline-flex max-w-full items-center gap-2 text-left no-underline hover:no-underline"
+            className="inline-flex max-w-full items-center gap-1.5 text-left no-underline hover:no-underline sm:gap-2"
           >
-            <CenterAvatar name={customer.customerName} />
-            <span className="truncate text-xs font-semibold text-slate-900 group-hover:text-blue-700">
+            <span className="shrink-0">
+              <CenterAvatar name={customer.customerName} />
+            </span>
+            <span className="truncate font-semibold text-slate-950 group-hover:text-blue-700">
               {customer.customerName || "Unnamed"}
             </span>
           </CustomerDetailLink>
         </td>
-        <td className="whitespace-nowrap px-2 py-2.5 text-xs tabular-nums text-slate-600">{customer.mobileNumber || "--"}</td>
-        <td className="truncate px-2 py-2.5 text-right text-xs font-medium tabular-nums text-slate-700">
+        <td className="center-customer-cell center-customer-cell--mobile whitespace-nowrap tabular-nums">
+          {customer.mobileNumber || "--"}
+        </td>
+        <td className="center-customer-cell center-customer-cell--amount text-right tabular-nums">
           {formatLoanAmount(customer.loanAmount)}
         </td>
-        <td className="truncate px-2 py-2.5 text-right text-xs font-medium tabular-nums text-emerald-600">
+        <td className="center-customer-cell center-customer-cell--amount center-customer-cell--collected text-right tabular-nums">
           {formatLoanAmount(collected)}
         </td>
-        <td className="truncate px-2 py-2.5 text-xs text-slate-600">{dueDate}</td>
-        <td className="truncate px-2 py-2.5 text-xs tabular-nums text-slate-700">{pending}</td>
-        <td className="px-2 py-2.5 text-center">
+        <td className="center-customer-cell center-customer-cell--due whitespace-nowrap">{dueDate}</td>
+        <td className="center-customer-cell center-customer-cell--pending tabular-nums">{pending}</td>
+        <td className="center-customer-cell center-customer-cell--action text-center">
           <button
             type="button"
             disabled={saving}
@@ -257,30 +267,32 @@ export default function Center() {
       );
     }
 
+    const countLabel = `Showing ${displayCustomers.length} customer${displayCustomers.length === 1 ? "" : "s"}`;
+
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/90 bg-white shadow-sm">
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <table className="w-full table-fixed text-sm">
+      <div className="center-customer-table flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/90 bg-white shadow-sm">
+        <div className="center-customer-table-scroll min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+          <table className="center-customer-table-grid w-full min-w-[40rem] table-fixed text-sm md:min-w-full">
             <colgroup>
-              <col style={{ width: "2.5rem" }} />
-              <col style={{ width: "11rem" }} />
-              <col style={{ width: "6.75rem" }} />
-              <col />
-              <col />
-              <col />
-              <col />
-              <col style={{ width: "3.25rem" }} />
+              <col className="center-customer-col-index" />
+              <col className="center-customer-col-name" />
+              <col className="center-customer-col-mobile" />
+              <col className="center-customer-col-amount" />
+              <col className="center-customer-col-amount" />
+              <col className="center-customer-col-due" />
+              <col className="center-customer-col-pending" />
+              <col className="center-customer-col-action" />
             </colgroup>
-            <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+            <thead className="center-customer-thead sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
               <tr>
-                <th className="px-2 py-2.5 text-center">#</th>
-                <th className="px-2 py-2.5 text-left">Customer</th>
-                <th className="px-2 py-2.5 text-left">Mobile</th>
-                <th className="px-2 py-2.5 text-right">Loan</th>
-                <th className="px-2 py-2.5 text-right">Collected</th>
-                <th className="px-2 py-2.5 text-left">Due</th>
-                <th className="px-2 py-2.5 text-left">Pending</th>
-                <th className="px-2 py-2.5 text-center">Action</th>
+                <th className="center-customer-head center-customer-head--index">#</th>
+                <th className="center-customer-head center-customer-head--name">Customer</th>
+                <th className="center-customer-head center-customer-head--mobile">Mobile</th>
+                <th className="center-customer-head center-customer-head--amount">Loan</th>
+                <th className="center-customer-head center-customer-head--amount">Collected</th>
+                <th className="center-customer-head center-customer-head--due">Due</th>
+                <th className="center-customer-head center-customer-head--pending">Pending</th>
+                <th className="center-customer-head center-customer-head--action">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -289,8 +301,8 @@ export default function Center() {
           </table>
         </div>
 
-        <div className="shrink-0 border-t border-slate-100 px-4 py-2.5 text-center text-[11px] text-slate-400">
-          Showing {displayCustomers.length} customer{displayCustomers.length === 1 ? "" : "s"}
+        <div className="shrink-0 border-t border-slate-100 px-4 py-2.5 text-center text-xs font-medium text-slate-600">
+          {countLabel}
         </div>
       </div>
     );
@@ -362,10 +374,10 @@ export default function Center() {
   return (
     <AdminLayout title="Center" description="Manage sub-centers and customer assignment">
       <CenterEmployeeTabs />
-      <div className="flex h-[calc(100vh-5.5rem)] w-full min-w-0 max-w-full flex-col overflow-hidden lg:max-w-[min(1440px,100%)]">
+      <div className="flex w-full min-w-0 max-w-full flex-col md:h-[calc(100vh-5.5rem)] md:overflow-hidden lg:max-w-[min(1440px,100%)]">
         {actionError ? <p className="mb-2 shrink-0 app-alert-error">{actionError}</p> : null}
 
-        <div className="grid min-h-0 flex-1 items-start gap-4 lg:grid-cols-[248px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 items-start gap-4 md:min-h-0 lg:grid-cols-[248px_minmax(0,1fr)]">
           <section className="flex w-full flex-col rounded-2xl border border-slate-200/90 bg-white p-3 shadow-sm lg:sticky lg:top-3">
             <div className="mb-2 flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 text-blue-600" aria-hidden />
@@ -468,8 +480,8 @@ export default function Center() {
           </section>
 
           <div className="flex min-h-0 min-w-0 flex-col">
-            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/90 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={() =>
@@ -480,9 +492,9 @@ export default function Center() {
                     },
                   })
                 }
-                className="app-button-primary inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold"
+                className="app-button-primary inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold sm:px-4 sm:text-sm"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 shrink-0" />
                 New customer
               </button>
               <button
@@ -491,9 +503,9 @@ export default function Center() {
                   setModalParent(activeDayGroup?.label || "");
                   setShowModal(true);
                 }}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:px-4 sm:text-sm"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 shrink-0" />
                 Sub-center
               </button>
             </div>
@@ -528,13 +540,13 @@ export default function Center() {
               </div>
             ) : null}
 
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <select
                 value={selectionByCenter[targetCenterLabel] || ""}
                 onChange={(event) =>
                   setSelectionByCenter((current) => ({ ...current, [targetCenterLabel]: event.target.value }))
                 }
-                className="app-select min-w-0 flex-1 py-2.5 text-sm"
+                className="app-select min-w-0 w-full py-2.5 text-sm sm:flex-1"
                 disabled={!targetCenterLabel}
               >
                 <option value="">Move customer from other center...</option>
@@ -550,7 +562,7 @@ export default function Center() {
                 type="button"
                 disabled={!selectionByCenter[targetCenterLabel] || saving || !targetCenterLabel}
                 onClick={() => moveCustomer(selectionByCenter[targetCenterLabel], targetCenterLabel)}
-                className="app-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                className="app-button-primary inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 sm:w-auto"
               >
                 Move
                 <ArrowRight className="h-4 w-4" aria-hidden />

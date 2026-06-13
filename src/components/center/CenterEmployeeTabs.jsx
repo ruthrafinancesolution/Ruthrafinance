@@ -6,13 +6,13 @@ export default function CenterEmployeeTabs() {
   const active = location.pathname.includes("/employees") ? "employee" : "center";
 
   const buttonClass = (tab) =>
-    `rounded-xl px-4 py-2 text-sm font-medium transition ${
+    `rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${
       active === tab ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
     }`;
 
   return (
-    <div className="mb-4 flex w-full shrink-0 justify-end">
-      <div className="app-segmented w-full sm:w-auto">
+    <div className="center-employee-tabs mb-4 flex w-full shrink-0 justify-end md:relative md:mb-4">
+      <div className="app-segmented w-auto shrink-0">
         <button type="button" onClick={() => navigate("/dashboard/center")} className={buttonClass("center")}>
           Center
         </button>

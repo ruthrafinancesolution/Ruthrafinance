@@ -3,7 +3,7 @@ import { LogOut } from "lucide-react";
 import { auth } from "../../firebase/config";
 import { clearAuthSession } from "../../utils/authSession";
 
-export default function LogoutButton() {
+export default function LogoutButton({ className = "" }) {
   const handleLogout = async () => {
     clearAuthSession();
     await signOut(auth);
@@ -14,7 +14,7 @@ export default function LogoutButton() {
     <button
       type="button"
       onClick={handleLogout}
-      className="app-button-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
+      className={`app-button-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium ${className}`.trim()}
     >
       <LogOut className="h-4 w-4" />
       Logout

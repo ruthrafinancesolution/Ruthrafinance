@@ -128,8 +128,10 @@ export default function Settings() {
     setSearchParams({ tab: nextTab });
   };
 
-  const settingsTabs = (
-    <div className="app-segmented inline-flex w-full max-w-full shrink-0 flex-wrap rounded-2xl p-1 sm:w-auto">
+  const renderSettingsTabs = (className = "") => (
+    <div
+      className={`app-segmented settings-tabs inline-flex max-w-full shrink-0 flex-nowrap rounded-2xl p-1 ${className}`.trim()}
+    >
       <button
         type="button"
         onClick={() => setTab("repayment")}
@@ -165,12 +167,17 @@ export default function Settings() {
       title="Setting"
       description="Manage app settings."
       action={
-        <>
-          {settingsTabs}
+        <div className="hidden items-center justify-end gap-3 md:flex">
+          {renderSettingsTabs()}
           <LogoutButton />
-        </>
+        </div>
       }
     >
+      <div className="settings-mobile-bar mb-3 flex min-w-0 items-center gap-2 md:hidden">
+        <div className="settings-mobile-tabs min-w-0 flex-1">{renderSettingsTabs("w-full")}</div>
+        <LogoutButton className="settings-logout-btn shrink-0 px-3 py-2" />
+      </div>
+
       <div className="app-grid-page grid gap-3">
         {tab === "profile" ? <ProfilePanel /> : null}
         {tab === "notifications" ? <NotificationsPanel /> : null}

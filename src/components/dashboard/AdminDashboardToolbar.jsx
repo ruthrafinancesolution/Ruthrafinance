@@ -28,7 +28,7 @@ export default function AdminDashboardToolbar({ children }) {
   const isDark = theme === "dark";
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="admin-mobile-toolbar-visible flex items-center gap-2">
       {children}
       <button
         type="button"

@@ -317,6 +317,7 @@ export async function createSalaryRecord(payload, actor) {
     salary_id: salaryId,
     employee_name: normalizeText(payload.employeeName),
     employee_id: normalizeText(payload.employeeId),
+    employee_center: normalizeText(payload.employeeCenter),
     department: normalizeText(payload.department),
     salary_month: normalizeText(payload.salaryMonth),
     basic_salary: basicSalary,
@@ -349,6 +350,7 @@ export async function updateSalaryRecord(salaryId, payload, actor) {
   await updateDoc(doc(db, ACCOUNTS_SALARY_COLLECTION, salaryId), {
     employee_name: normalizeText(payload.employeeName),
     employee_id: normalizeText(payload.employeeId),
+    employee_center: normalizeText(payload.employeeCenter),
     department: normalizeText(payload.department),
     salary_month: normalizeText(payload.salaryMonth),
     basic_salary: basicSalary,

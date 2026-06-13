@@ -384,7 +384,7 @@ export default function EmployeePage() {
   return (
     <AdminLayout title="Employee" description="Employee creation and centre assignment">
       <CenterEmployeeTabs />
-      <div className="flex h-[calc(100vh-5.5rem)] min-w-0 flex-col gap-4 overflow-hidden">
+      <div className="flex min-w-0 flex-col gap-4 md:h-[calc(100vh-5.5rem)] md:overflow-hidden">
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/90 bg-white p-4 shadow-sm md:p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 lg:grid-cols-4">
@@ -428,23 +428,26 @@ export default function EmployeePage() {
           </div>
 
           <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-slate-200/90 bg-white shadow-sm">
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <colgroup>
+            <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+              <table className="w-full min-w-0 text-sm md:min-w-[48rem] md:table-fixed">
+                <colgroup className="hidden md:contents">
                   {EMPLOYEE_TABLE_COLUMNS.map((column) => (
                     <col key={column.key} style={{ width: column.width }} />
                   ))}
                 </colgroup>
                 <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">
                   <tr>
-                    {EMPLOYEE_TABLE_COLUMNS.map((column) => (
+                    {EMPLOYEE_TABLE_COLUMNS.map((column) => {
+                      const hideOnMobile = ["employeeId", "username", "centers"].includes(column.key);
+                      return (
                       <th
                         key={column.key}
-                        className={`whitespace-nowrap px-3 py-2.5 ${column.align === "right" ? "text-right" : "text-left"}`}
+                        className={`whitespace-nowrap px-2 py-2.5 sm:px-3 ${column.align === "right" ? "text-right" : "text-left"} ${hideOnMobile ? "hidden md:table-cell" : ""} ${column.key === "employee" ? "min-w-[8rem]" : ""} ${column.key === "mobileNumber" ? "min-w-[6.5rem]" : ""}`}
                       >
                         {column.label}
                       </th>
-                    ))}
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -463,39 +466,42 @@ export default function EmployeePage() {
                   ) : (
                     filteredEmployees.map((row, index) => (
                       <tr key={row.id} className="hover:bg-slate-50/80">
-                        <td className="px-3 py-3 text-center text-xs font-semibold text-slate-400">{index + 1}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-3 text-center text-xs font-semibold text-slate-400 sm:px-3">{index + 1}</td>
+                        <td className="px-2 py-3 sm:px-3">
                           <div className="flex min-w-0 items-center gap-2">
                             <EmployeeAvatar name={`${row.employeeName} ${row.employeeSecondName}`.trim()} />
                             <div className="min-w-0">
                               <span
-                                className="block truncate text-sm font-semibold text-slate-900"
+                                className="block truncate text-xs font-semibold text-slate-900 sm:text-sm"
                                 title={`${row.employeeName}${row.employeeSecondName ? ` ${row.employeeSecondName}` : ""}`}
                               >
                                 {row.employeeName}
                               </span>
                               {row.employeeSecondName ? (
-                                <span className="block truncate text-[11px] text-slate-500" title={row.employeeSecondName}>
+                                <span className="block truncate text-[10px] text-slate-500 sm:text-[11px]" title={row.employeeSecondName}>
                                   {row.employeeSecondName}
                                 </span>
                               ) : null}
+                              <span className="block truncate text-[10px] text-blue-600 md:hidden" title={row.employeeId}>
+                                {row.employeeId}
+                              </span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-sm font-semibold text-blue-600">{row.employeeId}</td>
-                        <td className="px-3 py-3 text-sm text-slate-700">{row.mobileNumber}</td>
-                        <td className="px-3 py-3 text-sm text-slate-700">
+                        <td className="hidden px-3 py-3 text-sm font-semibold text-blue-600 md:table-cell">{row.employeeId}</td>
+                        <td className="whitespace-nowrap px-2 py-3 text-xs text-slate-700 sm:px-3 sm:text-sm">{row.mobileNumber}</td>
+                        <td className="hidden px-3 py-3 text-sm text-slate-700 md:table-cell">
                           <span className="block truncate" title={row.username}>
                             {row.username}
                           </span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="hidden px-3 py-3 md:table-cell">
                           <CenterCell centers={row.assignedCenters} />
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-3 sm:px-3">
                           <StatusBadge status={row.status} />
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-3 sm:px-3">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"

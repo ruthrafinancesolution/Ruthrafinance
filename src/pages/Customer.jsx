@@ -409,7 +409,7 @@ export default function Customer() {
           onClick={openCreate}
           onMouseEnter={preloadCustomerCreatePage}
           onFocus={preloadCustomerCreatePage}
-          className="app-button-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+          className="admin-mobile-toolbar-visible app-button-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
         >
           <Plus className="h-4 w-4" />
           New customer
@@ -476,36 +476,39 @@ export default function Customer() {
             </div>
 
             <div className="customer-module-toolbar shrink-0 border-b border-slate-100 px-3 py-2">
-              <div className="customer-module-toolbar-row flex min-w-0 flex-wrap items-center gap-2">
-                <div className="relative min-w-0 flex-1 basis-[10rem]">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search name, phone, or ID..."
-                    className="app-input w-full rounded-xl py-2 text-sm shadow-sm shadow-slate-900/5 ring-1 ring-slate-100/80"
-                    style={{ paddingLeft: "2.25rem", paddingRight: "0.75rem" }}
-                    aria-label="Search customers"
-                  />
+              <div className="customer-module-toolbar-row flex min-w-0 flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                <div className="customer-module-toolbar-primary flex min-w-0 w-full items-center gap-2 md:contents">
+                  <div className="relative min-w-0 flex-1 md:basis-[10rem]">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search name, phone, or ID..."
+                      className="app-input w-full rounded-xl py-2 text-sm shadow-sm shadow-slate-900/5 ring-1 ring-slate-100/80"
+                      style={{ paddingLeft: "2.25rem", paddingRight: "0.75rem" }}
+                      aria-label="Search customers"
+                    />
+                  </div>
+
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      if (id) navigate(`/dashboard/customer/${id}`, { state: { customerId: id } });
+                    }}
+                    className="app-select customer-module-jump-select min-w-0 flex-1 py-2 text-xs md:w-auto md:min-w-[9.5rem] md:max-w-[13rem] md:flex-none md:shrink-0"
+                    aria-label="Jump to customer"
+                  >
+                    <option value="">Jump to customer…</option>
+                    {scopedCustomers.map((c) => (
+                      <option key={c.customerId} value={c.customerId}>
+                        {c.customerName || "Unnamed"} — {c.mobileNumber || c.customerId}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    if (id) navigate(`/dashboard/customer/${id}`, { state: { customerId: id } });
-                  }}
-                  className="app-select customer-module-jump-select w-auto min-w-[9.5rem] max-w-[13rem] shrink-0 py-2 text-xs"
-                  aria-label="Jump to customer"
-                >
-                  <option value="">Jump to customer…</option>
-                  {scopedCustomers.map((c) => (
-                    <option key={c.customerId} value={c.customerId}>
-                      {c.customerName || "Unnamed"} — {c.mobileNumber || c.customerId}
-                    </option>
-                  ))}
-                </select>
-
+                <div className="customer-module-toolbar-secondary flex min-w-0 w-full flex-wrap items-center gap-2 md:contents">
                 <div className="customer-module-status-tabs flex shrink-0 items-center gap-1">
                   <button
                     type="button"
@@ -570,7 +573,12 @@ export default function Customer() {
                   </button>
                 ) : null}
 
-                <div className="relative shrink-0" ref={filterRef}>
+                <div
+                  ref={filterRef}
+                  className={`customer-module-filter relative shrink-0 ${
+                    filterOpen ? "max-md:w-full max-md:basis-full" : ""
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => setFilterOpen((open) => !open)}
@@ -590,12 +598,12 @@ export default function Customer() {
                   </button>
 
                   {filterOpen ? (
-                    <div className="absolute right-0 z-20 mt-2 w-[min(280px,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-lg shadow-slate-900/10">
+                    <div className="customer-module-filter-panel z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-lg shadow-slate-900/10 max-md:static md:absolute md:right-0 md:top-full md:w-[min(280px,calc(100vw-2rem))]">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Center</p>
                       <select
                         value={centerFilter}
                         onChange={(event) => setCenterFilter(event.target.value)}
-                        className="app-select py-2 text-sm"
+                        className="app-select w-full py-2 text-sm"
                         aria-label="Filter by center"
                       >
                         {centerOptions.map((option) => (
@@ -615,6 +623,7 @@ export default function Customer() {
                       ) : null}
                     </div>
                   ) : null}
+                </div>
                 </div>
               </div>
             </div>

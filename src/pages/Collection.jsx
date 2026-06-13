@@ -40,6 +40,14 @@ const FREQUENCY_OPTIONS = ["All", "Daily", "Weekly", "Monthly"];
 const STATUS_OPTIONS = ["All", "Collected", "Partial Payment", "Skipped", "Rescheduled", "Pending"];
 const PERIOD_OPTIONS = ["All", "Today", "This Week", "This Month", "This Year"];
 
+const PERIOD_SHORT_LABELS = {
+  All: "All",
+  Today: "Today",
+  "This Week": "Week",
+  "This Month": "Month",
+  "This Year": "Year",
+};
+
 const EXPORT_COLUMNS = [
   { key: "customerName", label: "Customer Name" },
   { key: "customerId", label: "Customer ID" },
@@ -615,19 +623,20 @@ export default function Collection() {
                       Print
                     </ExportToolbarButton>
                   </ExportToolbar>
-                  <div className="collection-register-toolbar-period flex flex-wrap items-center gap-2">
+                  <div className="collection-register-toolbar-period flex w-full items-center gap-2">
                     {PERIOD_OPTIONS.map((option) => (
                       <button
                         key={option}
                         type="button"
                         onClick={() => setPeriodFilter(option)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition max-sm:px-1 max-sm:py-1 max-sm:text-[0.5625rem] ${
                           periodFilter === option
                             ? "bg-slate-900 text-white shadow-sm"
                             : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                       >
-                        {option}
+                        <span className="sm:hidden">{PERIOD_SHORT_LABELS[option]}</span>
+                        <span className="hidden sm:inline">{option}</span>
                       </button>
                     ))}
                   </div>
@@ -635,30 +644,34 @@ export default function Collection() {
               </div>
             </div>
 
-            <div className="collection-register-filters mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <div className="collection-register-filters mt-4 flex min-w-0 items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 sm:left-4 sm:h-4 sm:w-4" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search customer, center, collector..."
-                  className="app-input w-full !pl-11 pr-4 bg-slate-50"
+                  className="collection-register-search app-input w-full !pl-9 pr-3 sm:!pl-11 sm:pr-4 bg-slate-50"
                 />
               </div>
 
               <select
                 value={frequencyFilter}
                 onChange={(event) => setFrequencyFilter(event.target.value)}
-                className="app-select"
+                className="app-select collection-register-filter-select shrink-0"
               >
                 {FREQUENCY_OPTIONS.map((option) => (
                   <option key={option} value={option}>
-                    {option} Collection
+                    {option}
                   </option>
                 ))}
               </select>
 
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="app-select">
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="app-select collection-register-filter-select shrink-0"
+              >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}

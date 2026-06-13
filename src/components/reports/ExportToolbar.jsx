@@ -14,6 +14,7 @@ export function ExportToolbar({ children, className = "" }) {
 export function ExportToolbarButton({
   variant = "neutral",
   loading = false,
+  pressed = false,
   icon,
   children,
   className = "",
@@ -25,8 +26,9 @@ export function ExportToolbarButton({
   return (
     <button
       type="button"
-      className={`app-export-btn app-export-btn--${variant} ${className}`.trim()}
+      className={`app-export-btn app-export-btn--${variant} ${pressed ? "app-export-btn--pressed" : ""} ${className}`.trim()}
       disabled={loading || props.disabled}
+      aria-pressed={pressed || undefined}
       {...props}
     >
       {DisplayIcon ? (

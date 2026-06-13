@@ -28,7 +28,7 @@ const PRINT_COLUMNS = [
   { key: "currentTenure", label: "Current Tenure", align: "center" },
   { key: "currentDueAmount", label: "Current Due", align: "right" },
   { key: "pendingTenuresLabel", label: "Pending", align: "center" },
-  { key: "pendingAmountDisplay", label: "Pending Amount", align: "right" },
+  { key: "pendingAmountDisplay", label: "Total Pending", align: "right" },
   { key: "balanceAmount", label: "Balance Tenure", align: "right" },
   { key: "paid", label: "Paid", align: "right" },
   { key: "entry", label: "Entry", align: "right" },

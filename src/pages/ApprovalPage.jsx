@@ -398,11 +398,12 @@ export function ApprovalRegisterPanel() {
                     onClick={() => setPreviewOpen(true)}
                     className="app-button-primary approval-register-toolbar-btn inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold shadow-sm"
                   >
-                    <FileText className="h-3.5 w-3.5" />
+                    <FileText className="hidden h-3.5 w-3.5 sm:block" />
                     Report
                   </button>
                   <span className="approval-register-live-sync shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800">
-                    Live sync
+                    <span className="sm:hidden">Sync</span>
+                    <span className="hidden sm:inline">Live sync</span>
                   </span>
                 </div>
               </div>

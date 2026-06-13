@@ -22,6 +22,7 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  X,
 } from "lucide-react";
 import AdminLayout from "../components/dashboard/AdminLayout";
 import EnterpriseReportPreview from "../components/reports/EnterpriseReportPreview.jsx";
@@ -36,6 +37,7 @@ import {
   TRANSACTION_CATEGORY_OTHERS_LABEL,
   TRANSACTION_CATEGORY_OTHERS_VALUE,
 } from "../utils/accountsTransactionCategory";
+import { formatAssignedCentersLabel } from "../utils/employeeManagement";
 import { sumInvestorDeposits } from "../utils/walletLedgerBalance";
 import {
   buildPreviewColumnsPdfPayload,
@@ -243,6 +245,14 @@ function openPrintableReport({ title, subtitle, columns, rows, reportMeta }) {
   );
 }
 
+function getCategoryDocId(item) {
+  return item?.category_id || item?.id || "";
+}
+
+function canDeleteCategory(item) {
+  return Boolean(getCategoryDocId(item));
+}
+
 function getStatusTone(status) {
   const value = String(status || "").toLowerCase();
   if (value === "completed" || value === "paid") return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -272,6 +282,7 @@ function emptySalaryForm() {
   return {
     employeeName: "",
     employeeId: "",
+    employeeCenter: "",
     department: "",
     salaryMonth: new Date().toISOString().slice(0, 7),
     basicSalary: "",
@@ -281,6 +292,41 @@ function emptySalaryForm() {
     paymentDate: "",
     description: "",
   };
+}
+
+function normalizeEmployeeIdKey(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function resolveSalaryCenter(record, employeesByEmployeeId = new Map()) {
+  const stored = String(record?.employee_center || "").trim();
+  if (stored) return stored;
+  const employee = employeesByEmployeeId.get(normalizeEmployeeIdKey(record?.employee_id));
+  return employee ? formatAssignedCentersLabel(employee) : "--";
+}
+
+function salaryRecordToForm(item, employeesByEmployeeId = new Map()) {
+  return {
+    employeeName: item.employee_name || "",
+    employeeId: item.employee_id || "",
+    employeeCenter: resolveSalaryCenter(item, employeesByEmployeeId),
+    department: item.department || "",
+    salaryMonth: item.salary_month || "",
+    basicSalary: String(item.basic_salary || ""),
+    bonus: String(item.bonus || ""),
+    deduction: String(item.deduction || ""),
+    paymentStatus: item.payment_status || "pending",
+    paymentDate: item.payment_date || "",
+    description: item.description || "",
+  };
+}
+
+function defaultPaidDateForSalary(salaryMonth, fallback = "") {
+  const month = String(salaryMonth || "").trim();
+  const today = fallback || new Date().toISOString().slice(0, 10);
+  if (!month) return today;
+  if (today.slice(0, 7) === month) return today;
+  return `${month}-01`;
 }
 
 function emptyCategoryForm(type = "expense") {
@@ -301,7 +347,7 @@ function SummaryKpi({ label, value, compact = false, tone = "default" }) {
 
 function Panel({ title, eyebrow, actions, children, icon: Icon, compact = false }) {
   return (
-    <section className={`app-panel rounded-[24px] ${compact ? "accounts-panel-compact p-3" : "p-4"}`}>
+    <section className={`app-panel min-w-0 max-w-full rounded-[24px] ${compact ? "accounts-panel-compact p-3" : "p-4"}`}>
       <div className={`flex flex-wrap items-start justify-between ${compact ? "gap-2" : "gap-3"}`}>
         <div className="flex items-start gap-2.5">
           {Icon ? (
@@ -335,6 +381,50 @@ function StatusBadge({ value }) {
 
 function EmptyState({ message }) {
   return <div className="app-empty-state">{message}</div>;
+}
+
+function AccountsModal({ open, onClose, title, icon: Icon, children, wide = false }) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/45 px-3 py-3 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="accounts-modal-title"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={`accounts-modal-panel app-panel w-full overflow-y-auto rounded-2xl p-4 shadow-xl sm:max-h-[min(90vh,760px)] sm:p-5 ${
+          wide ? "max-w-2xl" : "max-w-lg"
+        }`}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            {Icon ? (
+              <div className="app-icon-shell flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/70">
+                <Icon className="h-4 w-4" />
+              </div>
+            ) : null}
+            <h3 id="accounts-modal-title" className="text-base font-semibold text-slate-950 sm:text-lg">
+              {title}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-50"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export default function Accounts() {
@@ -383,8 +473,9 @@ export default function Accounts() {
 
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm());
   const [categoryError, setCategoryError] = useState("");
-
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [transactionModalOpen, setTransactionModalOpen] = useState(false);
+  const [salaryModalOpen, setSalaryModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   /** Office-only reporting range (income / expense / salary / exports) — separate from loan module. */
   const [officeDatePreset, setOfficeDatePreset] = useState("this_month");
@@ -465,14 +556,45 @@ export default function Accounts() {
     });
   }
 
-  function openAddExpenseCategory() {
+  function openTransactionModal(type = "expense") {
+    setEditingTransactionId("");
+    setTransactionError("");
+    setTransactionForm(emptyTransactionForm(type));
+    setTransactionModalOpen(true);
+  }
+
+  function closeTransactionModal() {
+    setTransactionModalOpen(false);
+    setEditingTransactionId("");
+    setTransactionError("");
+  }
+
+  function openSalaryModal() {
+    setEditingSalaryId("");
+    setSalaryError("");
+    setSalaryForm(emptySalaryForm());
+    setSalaryModalOpen(true);
+  }
+
+  function closeSalaryModal() {
+    setSalaryModalOpen(false);
+    setEditingSalaryId("");
+    setSalaryError("");
+  }
+
+  function openCategoryModal() {
     setCategoryForm(emptyCategoryForm("expense"));
     setCategoryError("");
-    setCategoriesOpen(true);
-    scrollToAccountsSection("transactions");
-    window.requestAnimationFrame(() => {
-      document.getElementById("accounts-categories")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    setCategoryModalOpen(true);
+  }
+
+  function closeCategoryModal() {
+    setCategoryModalOpen(false);
+    setCategoryError("");
+  }
+
+  function openAddExpenseCategory() {
+    openCategoryModal();
   }
 
   useEffect(() => {
@@ -636,6 +758,15 @@ export default function Accounts() {
   const transactionCategoryOptions = transactionForm.transactionType === "income" ? categoriesByType.income : categoriesByType.expense;
   const transactionCategoryIsOthers = isTransactionOthersSelection(transactionForm.category);
 
+  const employeesByEmployeeId = useMemo(() => {
+    const map = new Map();
+    employees.forEach((employee) => {
+      const key = normalizeEmployeeIdKey(employee.employeeId);
+      if (key) map.set(key, employee);
+    });
+    return map;
+  }, [employees]);
+
   const filteredTransactions = useMemo(() => {
     const query = transactionSearch.trim().toLowerCase();
     const rangeStart = officeAppliedBounds.start;
@@ -676,9 +807,11 @@ export default function Accounts() {
       if (salaryStatusFilter !== "all" && item.payment_status !== salaryStatusFilter) return false;
       if (salaryMonthFilter !== "all" && item.salary_month !== salaryMonthFilter) return false;
       if (!query) return true;
-      return [item.salary_id, item.employee_name, item.employee_id, item.department].some((field) => matchesSearch(field, query));
+      return [item.salary_id, item.employee_name, item.employee_id, item.department, resolveSalaryCenter(item, employeesByEmployeeId)].some((field) =>
+        matchesSearch(field, query)
+      );
     });
-  }, [officeAppliedBounds, salaryMonthFilter, salaryRecords, salarySearch, salaryStatusFilter]);
+  }, [employeesByEmployeeId, officeAppliedBounds, salaryMonthFilter, salaryRecords, salarySearch, salaryStatusFilter]);
 
 
   const salaryPreviewColumns = useMemo(
@@ -751,6 +884,47 @@ export default function Accounts() {
       return d && isDateInOfficeRange(d, rangeStart, rangeEnd);
     });
   }, [salaryRecords, officeAppliedBounds]);
+
+  const salaryByEmployeeIdForPeriod = useMemo(() => {
+    const map = new Map();
+    salaryRecordsForOfficeExport.forEach((record) => {
+      const key = normalizeEmployeeIdKey(record.employee_id);
+      if (!key) return;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, record);
+        return;
+      }
+      const existingPaid = String(existing.payment_status).toLowerCase() === "paid";
+      const recordPaid = String(record.payment_status).toLowerCase() === "paid";
+      if (recordPaid && !existingPaid) {
+        map.set(key, record);
+      }
+    });
+    return map;
+  }, [salaryRecordsForOfficeExport]);
+
+  const lastPayrollEmployeeRows = useMemo(
+    () =>
+      employees
+        .map((employee) => {
+          const employeeId = employee.employeeId || "—";
+          const key = normalizeEmployeeIdKey(employee.employeeId);
+          const record = key ? salaryByEmployeeIdForPeriod.get(key) : null;
+          const isPaid = record && String(record.payment_status).toLowerCase() === "paid";
+          return {
+            key: employee.id || employeeId,
+            employeeId,
+            name: employee.displayName || employee.username || "—",
+            center: formatAssignedCentersLabel(employee),
+            month: record?.salary_month ? formatMonthLabel(record.salary_month) : formatMonthLabel(currentMonth),
+            net: record ? formatCurrency(record.final_salary) : "—",
+            status: isPaid ? "paid" : "pending",
+          };
+        })
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [currentMonth, employees, salaryByEmployeeIdForPeriod]
+  );
 
   const finalSalaryPreview = Math.max(
     Number(salaryForm.basicSalary || 0) + Number(salaryForm.bonus || 0) - Number(salaryForm.deduction || 0),
@@ -1031,6 +1205,7 @@ export default function Accounts() {
       }
       setTransactionForm(emptyTransactionForm(transactionForm.transactionType));
       setEditingTransactionId("");
+      setTransactionModalOpen(false);
     } catch (error) {
       setTransactionError(error.message || "Unable to save transaction");
     } finally {
@@ -1039,7 +1214,6 @@ export default function Accounts() {
   }
 
   function handleEditTransaction(item) {
-    scrollToAccountsSection("transactions");
     setTransactionError("");
     setEditingTransactionId(item.transaction_id);
     const type = item.transaction_type || "expense";
@@ -1060,6 +1234,7 @@ export default function Accounts() {
       isRecurring: Boolean(item.is_recurring),
       recurringFrequency: item.recurring_frequency || "none",
     });
+    setTransactionModalOpen(true);
   }
 
   async function handleDeleteTransaction(item) {
@@ -1074,6 +1249,18 @@ export default function Accounts() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSalaryEmployeePick(employeeDocId) {
+    const employee = employees.find((item) => item.id === employeeDocId);
+    if (!employee) return;
+    setSalaryForm((current) => ({
+      ...current,
+      employeeName: employee.displayName || employee.username || "",
+      employeeId: employee.employeeId || "",
+      employeeCenter: formatAssignedCentersLabel(employee),
+      department: current.department || employee.department || "",
+    }));
   }
 
   async function handleSalarySubmit(event) {
@@ -1108,6 +1295,7 @@ export default function Accounts() {
       }
       setEditingSalaryId("");
       setSalaryForm(emptySalaryForm());
+      setSalaryModalOpen(false);
     } catch (error) {
       setSalaryError(error.message || "Unable to save salary record");
     } finally {
@@ -1116,21 +1304,36 @@ export default function Accounts() {
   }
 
   function handleEditSalary(item) {
-    scrollToAccountsSection("salary");
     setSalaryError("");
     setEditingSalaryId(item.salary_id);
-    setSalaryForm({
-      employeeName: item.employee_name || "",
-      employeeId: item.employee_id || "",
-      department: item.department || "",
-      salaryMonth: item.salary_month || "",
-      basicSalary: String(item.basic_salary || ""),
-      bonus: String(item.bonus || ""),
-      deduction: String(item.deduction || ""),
-      paymentStatus: item.payment_status || "pending",
-      paymentDate: item.payment_date || "",
-      description: item.description || "",
-    });
+    setSalaryForm(salaryRecordToForm(item, employeesByEmployeeId));
+    setSalaryModalOpen(true);
+  }
+
+  async function handleMarkSalaryPaid(item) {
+    if (String(item.payment_status).toLowerCase() === "paid") return;
+    const paymentDate = defaultPaidDateForSalary(item.salary_month, todayLabel);
+    if (!window.confirm(`Mark salary for ${item.employee_name || item.employee_id} as paid?`)) return;
+    setSaving(true);
+    setSalaryError("");
+    setStatusMessage("");
+    try {
+      const payload = salaryRecordToForm(item, employeesByEmployeeId);
+      await updateSalaryRecord(
+        item.salary_id,
+        {
+          ...payload,
+          paymentStatus: "paid",
+          paymentDate,
+        },
+        actor
+      );
+      setStatusMessage("Salary marked as paid.");
+    } catch (error) {
+      setSalaryError(error.message || "Unable to mark salary as paid");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDeleteSalary(item) {
@@ -1174,11 +1377,14 @@ export default function Accounts() {
   }
 
   async function handleDeleteCategory(item) {
-    if (item.is_default) return;
-    if (!window.confirm(`Delete category ${item.name}?`)) return;
+    const categoryId = getCategoryDocId(item);
+    if (!categoryId) return;
+    const defaultHint = item.is_default ? "This is a default category. " : "";
+    if (!window.confirm(`${defaultHint}Delete category "${item.name}"?`)) return;
     setSaving(true);
+    setCategoryError("");
     try {
-      await deleteAccountsCategory(item.category_id, actor);
+      await deleteAccountsCategory(categoryId, actor);
       setStatusMessage("Category deleted.");
     } catch (error) {
       setCategoryError(error.message || "Unable to delete category");
@@ -1657,8 +1863,8 @@ export default function Accounts() {
 
   return (
     <AdminLayout>
-      <div className="app-grid-page grid gap-4">
-        <section id="accounts-overview" className="scroll-mt-20 space-y-4">
+      <div className="accounts-page app-grid-page grid min-w-0 max-w-full gap-4 overflow-x-hidden">
+        <section id="accounts-overview" className="scroll-mt-20 min-w-0 max-w-full space-y-4">
           <div className="accounts-summary-kpi-grid">
             <SummaryKpi label="Wallet balance" value={formatCurrency(Math.round(liveWalletBalance))} tone="wallet" />
             <SummaryKpi label="Income" value={formatCurrency(Math.round(overviewMetrics.monthlyIncome))} tone="income" />
@@ -1688,65 +1894,43 @@ export default function Accounts() {
               </div>
             </div>
 
-            <div className="accounts-toolbar-side">
-              <div className="accounts-toolbar-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    scrollToAccountsSection("transactions");
-                    setEditingTransactionId("");
-                    setTransactionError("");
-                    setTransactionForm(emptyTransactionForm("income"));
-                  }}
-                  className="accounts-dash-action-btn"
+            <div className="accounts-toolbar-side flex w-full min-w-0 flex-row flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:border-l lg:border-slate-200/80 lg:pl-3">
+              <ExportToolbar className="accounts-toolbar-actions">
+                <ExportToolbarButton
+                  variant="income"
+                  icon={Plus}
+                  pressed={transactionModalOpen && transactionForm.transactionType === "income"}
+                  onClick={() => openTransactionModal("income")}
                 >
-                  <TrendingUp className="h-4 w-4" />
                   Add income
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    scrollToAccountsSection("transactions");
-                    setEditingTransactionId("");
-                    setTransactionError("");
-                    setTransactionForm(emptyTransactionForm("expense"));
-                  }}
-                  className="accounts-dash-action-btn"
+                </ExportToolbarButton>
+                <ExportToolbarButton
+                  variant="expense"
+                  icon={Plus}
+                  pressed={transactionModalOpen && transactionForm.transactionType === "expense"}
+                  onClick={() => openTransactionModal("expense")}
                 >
-                  <TrendingDown className="h-4 w-4" />
                   Add expense
-                </button>
-                <button type="button" onClick={openAddExpenseCategory} className="accounts-dash-action-btn">
-                  <Tag className="h-4 w-4" />
+                </ExportToolbarButton>
+                <ExportToolbarButton variant="category" icon={Plus} pressed={categoryModalOpen} onClick={openCategoryModal}>
                   Add category
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    scrollToAccountsSection("salary");
-                    setEditingSalaryId("");
-                    setSalaryError("");
-                    setSalaryForm(emptySalaryForm());
-                  }}
-                  className="accounts-dash-action-btn"
-                >
-                  <BriefcaseBusiness className="h-4 w-4" />
+                </ExportToolbarButton>
+                <ExportToolbarButton variant="salary" icon={Plus} pressed={salaryModalOpen} onClick={openSalaryModal}>
                   Pay salary
-                </button>
-                <span className="accounts-toolbar-divider accounts-toolbar-divider--inline" aria-hidden />
-                <select
-                  value={officeDatePreset}
-                  onChange={(event) => applyOfficeDatePreset(event.target.value)}
-                  className="app-select accounts-office-period-select"
-                  aria-label="Payroll period"
-                >
-                  <option value="today">Today</option>
-                  <option value="yesterday">Yesterday</option>
-                  <option value="this_week">This week</option>
-                  <option value="this_month">This month</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
+                </ExportToolbarButton>
+              </ExportToolbar>
+              <select
+                value={officeDatePreset}
+                onChange={(event) => applyOfficeDatePreset(event.target.value)}
+                className="app-select accounts-office-period-select shrink-0"
+                aria-label="Payroll period"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_week">This week</option>
+                <option value="this_month">This month</option>
+                <option value="custom">Custom</option>
+              </select>
               {officeDatePreset === "custom" ? (
                 <div className="accounts-toolbar-custom-range flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                   <div className="space-y-1">
@@ -1779,160 +1963,9 @@ export default function Accounts() {
           ) : null}
         </section>
 
-        <div className="accounts-workspace scroll-mt-20">
+        <div className="accounts-workspace scroll-mt-20 min-w-0 max-w-full">
+          <div className="accounts-workspace-split">
           <div id="accounts-transactions" className="accounts-workspace-col">
-            <div className="accounts-workspace-slot">
-              <Panel
-                compact
-                title={editingTransactionId ? "Edit transaction" : "Recent transaction"}
-                icon={Plus}
-                actions={
-                  editingTransactionId ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingTransactionId("");
-                        setTransactionError("");
-                        setTransactionForm(emptyTransactionForm(transactionForm.transactionType));
-                      }}
-                      className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
-                    >
-                      Reset
-                    </button>
-                  ) : null
-                }
-              >
-                <form className="space-y-3" onSubmit={handleTransactionSubmit}>
-                  <div className="grid gap-2.5 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Date</label>
-                      <input type="date" value={transactionForm.date} onChange={(event) => setTransactionForm((current) => ({ ...current, date: event.target.value }))} className="app-input h-10" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Type</label>
-                      <select
-                        value={transactionForm.transactionType}
-                        onChange={(event) =>
-                          setTransactionForm((current) => ({
-                            ...current,
-                            transactionType: event.target.value,
-                            category: "",
-                            customCategory: "",
-                          }))
-                        }
-                        className="app-select h-10"
-                      >
-                        <option value="income">Income</option>
-                        <option value="expense">Expense</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Category</label>
-                      <select
-                        value={transactionForm.category}
-                        onChange={(event) => {
-                          const nextCategory = event.target.value;
-                          setTransactionForm((current) => ({
-                            ...current,
-                            category: nextCategory,
-                            customCategory: isTransactionOthersSelection(nextCategory) ? current.customCategory : "",
-                          }));
-                        }}
-                        className="app-select h-10 transition hover:border-blue-300/90 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      >
-                        <option value="">Select category</option>
-                        {transactionCategoryOptions
-                          .filter((item) => item.name !== TRANSACTION_CATEGORY_OTHERS_LABEL)
-                          .map((item) => (
-                            <option key={item.category_id} value={item.name}>
-                              {item.name}
-                            </option>
-                          ))}
-                        <option value={TRANSACTION_CATEGORY_OTHERS_VALUE}>{TRANSACTION_CATEGORY_OTHERS_LABEL}</option>
-                      </select>
-                      <div
-                        className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
-                          transactionCategoryIsOthers ? "mt-2 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"
-                        }`}
-                        aria-hidden={!transactionCategoryIsOthers}
-                      >
-                        <div className="overflow-hidden">
-                          <label
-                            htmlFor="transaction-custom-category"
-                            className="text-[11px] font-semibold uppercase tracking-wide text-slate-400"
-                          >
-                            Custom category
-                          </label>
-                          <input
-                            id="transaction-custom-category"
-                            value={transactionForm.customCategory}
-                            onChange={(event) =>
-                              setTransactionForm((current) => ({
-                                ...current,
-                                customCategory: event.target.value,
-                              }))
-                            }
-                            className="app-input mt-1 h-10 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                            placeholder="Enter custom income or expense category"
-                            required={transactionCategoryIsOthers}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Amount</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={transactionForm.amount}
-                        onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))}
-                        className="app-input h-10"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Payment</label>
-                      <select value={transactionForm.paymentMethod} onChange={(event) => setTransactionForm((current) => ({ ...current, paymentMethod: event.target.value }))} className="app-select h-10">
-                        {TRANSACTION_PAYMENT_METHODS.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</label>
-                      <select value={transactionForm.status} onChange={(event) => setTransactionForm((current) => ({ ...current, status: event.target.value }))} className="app-select h-10">
-                        {TRANSACTION_STATUSES.map((item) => (
-                          <option key={item} value={item}>
-                            {item}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  {transactionError ? <p className="text-sm text-rose-600">{transactionError}</p> : null}
-                  <div className="flex flex-wrap gap-2">
-                    <button type="submit" disabled={saving} className="app-button-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-60">
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      {editingTransactionId ? "Update" : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingTransactionId("");
-                        setTransactionError("");
-                        setTransactionForm(emptyTransactionForm(transactionForm.transactionType));
-                      }}
-                      className="app-button-secondary rounded-xl px-4 py-2.5 text-sm font-medium"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </form>
-              </Panel>
-            </div>
-
             <div className="accounts-workspace-slot">
               <Panel
               compact
@@ -1962,19 +1995,19 @@ export default function Accounts() {
                     placeholder="Search…"
                   />
                 </div>
-                <div className="accounts-tx-filter-controls">
+                <div className="accounts-tx-filter-grid">
+                  <select value={transactionMonthFilter} onChange={(event) => setTransactionMonthFilter(event.target.value)} className="app-select accounts-tx-filter-select">
+                    <option value="all">Months</option>
+                    {transactionMonthOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {formatMonthLabel(item)}
+                      </option>
+                    ))}
+                  </select>
                   <select value={transactionTypeFilter} onChange={(event) => setTransactionTypeFilter(event.target.value)} className="app-select accounts-tx-filter-select">
                     <option value="all">Types</option>
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
-                  </select>
-                  <select value={transactionStatusFilter} onChange={(event) => setTransactionStatusFilter(event.target.value)} className="app-select accounts-tx-filter-select">
-                    <option value="all">Status</option>
-                    {TRANSACTION_STATUSES.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
                   </select>
                   <select value={transactionCategoryFilter} onChange={(event) => setTransactionCategoryFilter(event.target.value)} className="app-select accounts-tx-filter-select">
                     <option value="all">Categories</option>
@@ -1984,11 +2017,12 @@ export default function Accounts() {
                       </option>
                     ))}
                   </select>
-                  <select value={transactionMonthFilter} onChange={(event) => setTransactionMonthFilter(event.target.value)} className="app-select accounts-tx-filter-select">
-                    <option value="all">Months</option>
-                    {transactionMonthOptions.map((item) => (
+                  <div className="accounts-tx-filter-grid-spacer" aria-hidden="true" />
+                  <select value={transactionStatusFilter} onChange={(event) => setTransactionStatusFilter(event.target.value)} className="app-select accounts-tx-filter-select">
+                    <option value="all">Status</option>
+                    {TRANSACTION_STATUSES.map((item) => (
                       <option key={item} value={item}>
-                        {formatMonthLabel(item)}
+                        {item}
                       </option>
                     ))}
                   </select>
@@ -2024,7 +2058,9 @@ export default function Accounts() {
                         <tr key={item.transaction_id}>
                           <td className="accounts-ledger-col-date whitespace-nowrap text-slate-600">{formatDate(item.date)}</td>
                           <td className="accounts-ledger-col-type capitalize text-slate-600">{item.transaction_type}</td>
-                          <td className="accounts-ledger-col-category truncate font-medium text-slate-900">{item.category || "—"}</td>
+                          <td className="accounts-ledger-col-category truncate font-medium text-slate-900" title={item.category || "—"}>
+                            {item.category || "—"}
+                          </td>
                           <td className="accounts-ledger-col-amount font-semibold tabular-nums text-slate-950">{formatCurrency(item.amount)}</td>
                           <td className="accounts-ledger-col-status">
                             <StatusBadge value={item.status} />
@@ -2037,181 +2073,9 @@ export default function Accounts() {
               </div>
             </Panel>
             </div>
-
-
-            <div id="accounts-categories" className="accounts-workspace-slot scroll-mt-20">
-              <div className="app-panel flex flex-col rounded-[22px] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold text-slate-900">Categories</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCategoryForm(emptyCategoryForm("expense"));
-                        setCategoryError("");
-                        setCategoriesOpen(true);
-                      }}
-                      className="accounts-dash-action-btn !min-h-8 px-2.5 py-1.5 text-xs"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add category
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCategoriesOpen((open) => !open)}
-                      className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"
-                      aria-label={categoriesOpen ? "Collapse categories" : "Expand categories"}
-                    >
-                      <ChevronDown className={`h-4 w-4 transition-transform ${categoriesOpen ? "rotate-180" : ""}`} />
-                    </button>
-                  </div>
-                </div>
-                {categoriesOpen ? (
-                  <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-                    <form className="grid gap-2 sm:grid-cols-[120px_1fr_auto]" onSubmit={handleCategorySubmit}>
-                      <select value={categoryForm.categoryType} onChange={(event) => setCategoryForm((current) => ({ ...current, categoryType: event.target.value }))} className="app-select h-10">
-                        <option value="expense">Expense</option>
-                        <option value="income">Income</option>
-                      </select>
-                      <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} className="app-input h-10" placeholder="New name" />
-                      <button type="submit" disabled={saving} className="app-button-primary inline-flex items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-60">
-                        <Plus className="h-4 w-4" />
-                        Add
-                      </button>
-                    </form>
-                    {categoryError ? <p className="text-sm text-rose-600">{categoryError}</p> : null}
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Expense</p>
-                        {(categoriesByType.expense.length > 0 ? categoriesByType.expense : EXPENSE_CATEGORY_SEEDS.map((name) => ({ category_id: name, name, is_default: true }))).map((item) => (
-                          <div key={item.category_id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-slate-800">{item.name}</p>
-                              <p className="text-[10px] text-slate-400">{item.is_default ? "Default" : "Custom"}</p>
-                            </div>
-                            {!item.is_default ? (
-                              <button type="button" onClick={() => handleDeleteCategory(item)} className="rounded-lg border border-rose-100 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Income</p>
-                        {(categoriesByType.income.length > 0 ? categoriesByType.income : INCOME_SOURCE_SEEDS.map((name) => ({ category_id: name, name, is_default: true }))).map((item) => (
-                          <div key={item.category_id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-slate-800">{item.name}</p>
-                              <p className="text-[10px] text-slate-400">{item.is_default ? "Default" : "Custom"}</p>
-                            </div>
-                            {!item.is_default ? (
-                              <button type="button" onClick={() => handleDeleteCategory(item)} className="rounded-lg border border-rose-100 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    {monthlyExpenseCategoryBreakdown.length > 0 ? (
-                      <div className="border-t border-slate-100 pt-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Expenses this month</p>
-                        <ul className="mt-2 space-y-1.5">
-                          {monthlyExpenseCategoryBreakdown.map((item) => (
-                            <li key={item.category} className="flex items-center justify-between gap-2 text-sm">
-                              <span className="truncate text-slate-700">{item.category}</span>
-                              <span className="shrink-0 font-medium text-slate-900">{formatCurrency(item.amount)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
           </div>
 
           <div id="accounts-salary" className="accounts-workspace-col">
-            <div className="accounts-workspace-slot">
-            <Panel compact title={editingSalaryId ? "Edit payroll" : "Payroll entry"} icon={BriefcaseBusiness}>
-              <form className="space-y-2.5" onSubmit={handleSalarySubmit}>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Employee</label>
-                    <input value={salaryForm.employeeName} onChange={(event) => setSalaryForm((current) => ({ ...current, employeeName: event.target.value }))} className="app-input h-10" placeholder="Full name" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Employee ID</label>
-                    <input value={salaryForm.employeeId} onChange={(event) => setSalaryForm((current) => ({ ...current, employeeId: event.target.value }))} className="app-input h-10" placeholder="ID" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Department</label>
-                    <input value={salaryForm.department} onChange={(event) => setSalaryForm((current) => ({ ...current, department: event.target.value }))} className="app-input h-10" placeholder="Team" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salary month</label>
-                    <input type="month" value={salaryForm.salaryMonth} onChange={(event) => setSalaryForm((current) => ({ ...current, salaryMonth: event.target.value }))} className="app-input h-10" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Basic</label>
-                    <input type="number" min="0" value={salaryForm.basicSalary} onChange={(event) => setSalaryForm((current) => ({ ...current, basicSalary: event.target.value }))} className="app-input h-10" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Bonus</label>
-                    <input type="number" min="0" value={salaryForm.bonus} onChange={(event) => setSalaryForm((current) => ({ ...current, bonus: event.target.value }))} className="app-input h-10" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Deduction</label>
-                    <input type="number" min="0" value={salaryForm.deduction} onChange={(event) => setSalaryForm((current) => ({ ...current, deduction: event.target.value }))} className="app-input h-10" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</label>
-                    <select value={salaryForm.paymentStatus} onChange={(event) => setSalaryForm((current) => ({ ...current, paymentStatus: event.target.value }))} className="app-select h-10">
-                      {SALARY_PAYMENT_STATUSES.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Payment date</label>
-                    <input type="date" value={salaryForm.paymentDate} onChange={(event) => setSalaryForm((current) => ({ ...current, paymentDate: event.target.value }))} className="app-input h-10" />
-                  </div>
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/80 px-3 py-2 sm:col-span-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Net pay</p>
-                    <p className="text-lg font-bold text-blue-900">{formatCurrency(finalSalaryPreview)}</p>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</label>
-                  <textarea value={salaryForm.description} onChange={(event) => setSalaryForm((current) => ({ ...current, description: event.target.value }))} className="app-textarea min-h-[56px] text-sm" placeholder="Optional" />
-                </div>
-                {salaryError ? <p className="text-sm text-rose-600">{salaryError}</p> : null}
-                <div className="flex flex-wrap gap-2">
-                  <button type="submit" disabled={saving} className="app-button-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60">
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    {editingSalaryId ? "Update" : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingSalaryId("");
-                      setSalaryError("");
-                      setSalaryForm(emptySalaryForm());
-                    }}
-                    className="app-button-secondary rounded-xl px-4 py-2 text-sm font-medium"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </form>
-            </Panel>
-            </div>
-
             <div className="accounts-workspace-slot">
               <Panel compact title="Payroll register" icon={BriefcaseBusiness}>
                 <div className="accounts-payroll-filter-row">
@@ -2247,7 +2111,7 @@ export default function Accounts() {
                   <table className="app-table accounts-ledger-table accounts-ledger-table--payroll text-sm">
                     <colgroup>
                       <col className="accounts-ledger-col-date" />
-                      <col className="accounts-ledger-col-employee" />
+                      <col className="accounts-ledger-col-employee-name" />
                       <col className="accounts-ledger-col-amount" />
                       <col className="accounts-ledger-col-status" />
                       <col className="accounts-ledger-col-paid" />
@@ -2256,7 +2120,7 @@ export default function Accounts() {
                     <thead>
                       <tr>
                         <th className="accounts-ledger-col-date">Month</th>
-                        <th className="accounts-ledger-col-employee">Employee</th>
+                        <th className="accounts-ledger-col-employee-name">Name</th>
                         <th className="accounts-ledger-col-amount">Net</th>
                         <th className="accounts-ledger-col-status">Status</th>
                         <th className="accounts-ledger-col-paid">Paid</th>
@@ -2271,12 +2135,15 @@ export default function Accounts() {
                           </td>
                         </tr>
                       ) : (
-                        filteredSalaryRecords.map((item) => (
+                        filteredSalaryRecords.map((item) => {
+                          const isPaid = String(item.payment_status).toLowerCase() === "paid";
+                          return (
                           <tr key={item.salary_id}>
-                            <td className="accounts-ledger-col-date whitespace-nowrap text-slate-600">{formatMonthLabel(item.salary_month)}</td>
-                            <td className="accounts-ledger-col-employee">
-                              <p className="truncate font-medium text-slate-900">{item.employee_name}</p>
-                              <p className="truncate text-[11px] text-slate-500">{item.employee_id}</p>
+                            <td className="accounts-ledger-col-date whitespace-nowrap text-slate-600" title={formatMonthLabel(item.salary_month)}>
+                              {formatMonthLabel(item.salary_month)}
+                            </td>
+                            <td className="accounts-ledger-col-employee-name truncate font-medium text-slate-900" title={item.employee_name || "—"}>
+                              {item.employee_name || "—"}
                             </td>
                             <td className="accounts-ledger-col-amount font-semibold tabular-nums text-slate-950">{formatCurrency(item.final_salary)}</td>
                             <td className="accounts-ledger-col-status">
@@ -2285,6 +2152,17 @@ export default function Accounts() {
                             <td className="accounts-ledger-col-paid whitespace-nowrap text-slate-600">{formatDate(item.payment_date)}</td>
                             <td className="accounts-ledger-col-actions">
                               <div className="accounts-ledger-row-actions">
+                                {!isPaid ? (
+                                  <button
+                                    type="button"
+                                    title="Mark as paid"
+                                    disabled={saving}
+                                    onClick={() => handleMarkSalaryPaid(item)}
+                                    className="rounded-lg border border-emerald-100 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : null}
                                 <button type="button" onClick={() => handleEditSalary(item)} className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 hover:bg-slate-100">
                                   <Pencil className="h-3.5 w-3.5" />
                                 </button>
@@ -2294,16 +2172,19 @@ export default function Accounts() {
                               </div>
                             </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
                 </div>
               </Panel>
             </div>
+          </div>
+          </div>
 
-            <div className="accounts-workspace-slot">
-            <div className="accounts-latest-payroll flex flex-col rounded-[20px] border border-slate-100 bg-white p-3 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
+          <div className="accounts-workspace-slot accounts-workspace-slot--full">
+            <div className="accounts-latest-payroll flex w-full flex-col rounded-[20px] border border-slate-100 bg-white p-3 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-600">Activity</p>
@@ -2321,25 +2202,50 @@ export default function Accounts() {
                   </ExportToolbarButton>
                 </ExportToolbar>
               </div>
-              <div className="mt-2 space-y-2">
-                {salaryRecords.slice(0, 6).length === 0 ? (
-                  <EmptyState message="Saved payroll appears here." />
+              <div className="accounts-latest-payroll-table-wrap app-table-wrap mt-2">
+                {employeesLoading ? (
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-6 text-center text-sm text-slate-500">Loading employees…</div>
+                ) : lastPayrollEmployeeRows.length === 0 ? (
+                  <EmptyState message="No employees found. Add employees to track payroll status." />
                 ) : (
-                  salaryRecords.slice(0, 6).map((item) => (
-                    <div key={item.salary_id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">{item.employee_name}</p>
-                        <p className="text-[11px] text-slate-500">{formatMonthLabel(item.salary_month)}</p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <p className="text-sm font-semibold text-slate-900">{formatCurrency(item.final_salary)}</p>
-                        <StatusBadge value={item.payment_status} />
-                      </div>
-                    </div>
-                  ))
+                  <table className="app-table accounts-latest-payroll-table text-sm">
+                    <colgroup>
+                      <col className="accounts-payroll-col-id" />
+                      <col className="accounts-payroll-col-name" />
+                      <col className="accounts-payroll-col-center" />
+                      <col className="accounts-payroll-col-month" />
+                      <col className="accounts-payroll-col-net" />
+                      <col className="accounts-payroll-col-status" />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th className="accounts-payroll-col-id">Employee ID</th>
+                        <th className="accounts-payroll-col-name">Name</th>
+                        <th className="accounts-payroll-col-center">Center</th>
+                        <th className="accounts-payroll-col-month">Month</th>
+                        <th className="accounts-payroll-col-net">Net</th>
+                        <th className="accounts-payroll-col-status">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lastPayrollEmployeeRows.map((item) => (
+                        <tr key={item.key}>
+                          <td className="accounts-payroll-col-id whitespace-nowrap text-slate-700">{item.employeeId}</td>
+                          <td className="accounts-payroll-col-name truncate font-medium text-slate-900">{item.name}</td>
+                          <td className="accounts-payroll-col-center truncate text-slate-600" title={item.center}>
+                            {item.center}
+                          </td>
+                          <td className="accounts-payroll-col-month whitespace-nowrap text-slate-600">{item.month}</td>
+                          <td className="accounts-payroll-col-net whitespace-nowrap font-semibold tabular-nums text-slate-950">{item.net}</td>
+                          <td className="accounts-payroll-col-status">
+                            <StatusBadge value={item.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
-            </div>
             </div>
           </div>
         </div>
@@ -2350,6 +2256,311 @@ export default function Accounts() {
           </div>
         ) : null}
       </div>
+
+      <AccountsModal
+        open={transactionModalOpen}
+        onClose={closeTransactionModal}
+        title={editingTransactionId ? "Edit transaction" : "Recent transaction"}
+        icon={Plus}
+      >
+        <form className="space-y-3" onSubmit={handleTransactionSubmit}>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Date</label>
+              <input type="date" value={transactionForm.date} onChange={(event) => setTransactionForm((current) => ({ ...current, date: event.target.value }))} className="app-input h-10" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Type</label>
+              <select
+                value={transactionForm.transactionType}
+                onChange={(event) =>
+                  setTransactionForm((current) => ({
+                    ...current,
+                    transactionType: event.target.value,
+                    category: "",
+                    customCategory: "",
+                  }))
+                }
+                className="app-select h-10"
+              >
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </select>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Category</label>
+              <select
+                value={transactionForm.category}
+                onChange={(event) => {
+                  const nextCategory = event.target.value;
+                  setTransactionForm((current) => ({
+                    ...current,
+                    category: nextCategory,
+                    customCategory: isTransactionOthersSelection(nextCategory) ? current.customCategory : "",
+                  }));
+                }}
+                className="app-select h-10 transition hover:border-blue-300/90 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Select category</option>
+                {transactionCategoryOptions
+                  .filter((item) => item.name !== TRANSACTION_CATEGORY_OTHERS_LABEL)
+                  .map((item) => (
+                    <option key={item.category_id} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                <option value={TRANSACTION_CATEGORY_OTHERS_VALUE}>{TRANSACTION_CATEGORY_OTHERS_LABEL}</option>
+              </select>
+              <div
+                className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+                  transactionCategoryIsOthers ? "mt-2 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"
+                }`}
+                aria-hidden={!transactionCategoryIsOthers}
+              >
+                <div className="overflow-hidden">
+                  <label htmlFor="transaction-custom-category" className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Custom category
+                  </label>
+                  <input
+                    id="transaction-custom-category"
+                    value={transactionForm.customCategory}
+                    onChange={(event) =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        customCategory: event.target.value,
+                      }))
+                    }
+                    className="app-input mt-1 h-10 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="Enter custom income or expense category"
+                    required={transactionCategoryIsOthers}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Amount</label>
+              <input
+                type="number"
+                min="0"
+                value={transactionForm.amount}
+                onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))}
+                className="app-input h-10"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Payment</label>
+              <select value={transactionForm.paymentMethod} onChange={(event) => setTransactionForm((current) => ({ ...current, paymentMethod: event.target.value }))} className="app-select h-10">
+                {TRANSACTION_PAYMENT_METHODS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</label>
+              <select value={transactionForm.status} onChange={(event) => setTransactionForm((current) => ({ ...current, status: event.target.value }))} className="app-select h-10">
+                {TRANSACTION_STATUSES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {transactionError ? <p className="text-sm text-rose-600">{transactionError}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={saving} className="app-button-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium disabled:opacity-60">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {editingTransactionId ? "Update" : "Save"}
+            </button>
+            <button type="button" onClick={closeTransactionModal} className="app-button-secondary rounded-xl px-4 py-2.5 text-sm font-medium">
+              Clear
+            </button>
+          </div>
+        </form>
+      </AccountsModal>
+
+      <AccountsModal open={categoryModalOpen} onClose={closeCategoryModal} title="Categories" icon={Tag} wide>
+        <div className="space-y-3">
+          <form className="grid gap-2 sm:grid-cols-[120px_1fr_auto]" onSubmit={handleCategorySubmit}>
+            <select value={categoryForm.categoryType} onChange={(event) => setCategoryForm((current) => ({ ...current, categoryType: event.target.value }))} className="app-select h-10">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+            <input value={categoryForm.name} onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))} className="app-input h-10" placeholder="New name" />
+            <button type="submit" disabled={saving} className="app-button-primary inline-flex items-center justify-center gap-1 rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-60">
+              <Plus className="h-4 w-4" />
+              Add
+            </button>
+          </form>
+          {categoryError ? <p className="text-sm text-rose-600">{categoryError}</p> : null}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Expense</p>
+              {(categoriesByType.expense.length > 0 ? categoriesByType.expense : EXPENSE_CATEGORY_SEEDS.map((name) => ({ category_id: name, name, is_default: true }))).map((item) => (
+                <div key={getCategoryDocId(item) || `${item.name}-expense`} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">{item.name}</p>
+                    <p className="text-[10px] text-slate-400">{item.is_default ? "Default" : "Custom"}</p>
+                  </div>
+                  {canDeleteCategory(item) ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCategory(item)}
+                      disabled={saving}
+                      className="shrink-0 rounded-lg border border-rose-100 bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      title={`Delete ${item.name}`}
+                      aria-label={`Delete ${item.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Income</p>
+              {(categoriesByType.income.length > 0 ? categoriesByType.income : INCOME_SOURCE_SEEDS.map((name) => ({ category_id: name, name, is_default: true }))).map((item) => (
+                <div key={getCategoryDocId(item) || `${item.name}-income`} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">{item.name}</p>
+                    <p className="text-[10px] text-slate-400">{item.is_default ? "Default" : "Custom"}</p>
+                  </div>
+                  {canDeleteCategory(item) ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCategory(item)}
+                      disabled={saving}
+                      className="shrink-0 rounded-lg border border-rose-100 bg-rose-50 p-1.5 text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      title={`Delete ${item.name}`}
+                      aria-label={`Delete ${item.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+          {monthlyExpenseCategoryBreakdown.length > 0 ? (
+            <div className="border-t border-slate-100 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Expenses this month</p>
+              <ul className="mt-2 space-y-1.5">
+                {monthlyExpenseCategoryBreakdown.map((item) => (
+                  <li key={item.category} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate text-slate-700">{item.category}</span>
+                    <span className="shrink-0 font-medium text-slate-900">{formatCurrency(item.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </AccountsModal>
+
+      <AccountsModal
+        open={salaryModalOpen}
+        onClose={closeSalaryModal}
+        title={editingSalaryId ? "Edit payroll" : "Payroll entry"}
+        icon={BriefcaseBusiness}
+      >
+        <form className="space-y-2.5" onSubmit={handleSalarySubmit}>
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Select employee</label>
+            <select
+              value={employees.find((employee) => normalizeEmployeeIdKey(employee.employeeId) === normalizeEmployeeIdKey(salaryForm.employeeId))?.id || ""}
+              onChange={(event) => handleSalaryEmployeePick(event.target.value)}
+              className="app-select h-10"
+            >
+              <option value="">Choose employee</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {(employee.displayName || employee.username || "Employee") + (employee.employeeId ? ` (${employee.employeeId})` : "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Employee</label>
+              <input value={salaryForm.employeeName} onChange={(event) => setSalaryForm((current) => ({ ...current, employeeName: event.target.value }))} className="app-input h-10" placeholder="Full name" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Employee ID</label>
+              <input value={salaryForm.employeeId} onChange={(event) => setSalaryForm((current) => ({ ...current, employeeId: event.target.value }))} className="app-input h-10" placeholder="ID" />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Center</label>
+              <input value={salaryForm.employeeCenter} onChange={(event) => setSalaryForm((current) => ({ ...current, employeeCenter: event.target.value }))} className="app-input h-10" placeholder="Assigned center" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Department</label>
+              <input value={salaryForm.department} onChange={(event) => setSalaryForm((current) => ({ ...current, department: event.target.value }))} className="app-input h-10" placeholder="Team" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salary month</label>
+              <input type="month" value={salaryForm.salaryMonth} onChange={(event) => setSalaryForm((current) => ({ ...current, salaryMonth: event.target.value }))} className="app-input h-10" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Basic</label>
+              <input type="number" min="0" value={salaryForm.basicSalary} onChange={(event) => setSalaryForm((current) => ({ ...current, basicSalary: event.target.value }))} className="app-input h-10" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Bonus</label>
+              <input type="number" min="0" value={salaryForm.bonus} onChange={(event) => setSalaryForm((current) => ({ ...current, bonus: event.target.value }))} className="app-input h-10" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Deduction</label>
+              <input type="number" min="0" value={salaryForm.deduction} onChange={(event) => setSalaryForm((current) => ({ ...current, deduction: event.target.value }))} className="app-input h-10" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</label>
+              <select
+                value={salaryForm.paymentStatus}
+                onChange={(event) => {
+                  const nextStatus = event.target.value;
+                  setSalaryForm((current) => ({
+                    ...current,
+                    paymentStatus: nextStatus,
+                    paymentDate: nextStatus === "paid" && !current.paymentDate ? todayLabel : current.paymentDate,
+                  }));
+                }}
+                className="app-select h-10"
+              >
+                {SALARY_PAYMENT_STATUSES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Payment date</label>
+              <input type="date" value={salaryForm.paymentDate} onChange={(event) => setSalaryForm((current) => ({ ...current, paymentDate: event.target.value }))} className="app-input h-10" />
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50/80 px-3 py-2 sm:col-span-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600">Net pay</p>
+              <p className="text-lg font-bold text-blue-900">{formatCurrency(finalSalaryPreview)}</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</label>
+            <textarea value={salaryForm.description} onChange={(event) => setSalaryForm((current) => ({ ...current, description: event.target.value }))} className="app-textarea min-h-[56px] text-sm" placeholder="Optional" />
+          </div>
+          {salaryError ? <p className="text-sm text-rose-600">{salaryError}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={saving} className="app-button-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {editingSalaryId ? "Update" : "Save"}
+            </button>
+            <button type="button" onClick={closeSalaryModal} className="app-button-secondary rounded-xl px-4 py-2 text-sm font-medium">
+              Clear
+            </button>
+          </div>
+        </form>
+      </AccountsModal>
 
       <EnterpriseReportPreview
         open={accountsOverviewPreviewOpen}

@@ -182,7 +182,7 @@ class CustomerProfileErrorBoundary extends Component {
         title="Customer profile"
         description=""
         action={
-          <div className="no-print flex flex-wrap items-center gap-2">
+          <div className="admin-mobile-toolbar-visible no-print flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={this.handleBack}
@@ -470,7 +470,7 @@ function CustomerProfileContent() {
       title="Customer profile"
       description=""
       action={
-        <div className="no-print flex flex-wrap items-center gap-2">
+        <div className="admin-mobile-toolbar-visible no-print flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => navigate("/dashboard/customer")}

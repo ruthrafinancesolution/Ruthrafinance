@@ -251,7 +251,7 @@ export function NotificationsPanel() {
   };
 
   const pillBase =
-    "flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-lg border px-1 py-1 text-[10px] font-medium leading-none transition";
+    "notifications-toolbar-pill flex min-w-0 items-center justify-center gap-0.5 rounded-lg border px-2 py-1.5 text-[10px] font-medium leading-none transition sm:flex-1";
   const pillCount = "text-[9px] font-bold tabular-nums";
 
   const statBox =
@@ -274,79 +274,91 @@ export function NotificationsPanel() {
           </div>
         </div>
 
-        <div className="flex w-full min-w-0 items-stretch gap-0.5">
-          <button
-            type="button"
-            onClick={() => setView("current")}
-            aria-label="Current notifications"
-            title="Current"
-            className={`${pillBase} ${
-              view === "current" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+        <div className="notifications-toolbar w-full min-w-0 space-y-2">
+          <div
+            className={`notifications-toolbar-controls grid gap-1 sm:flex sm:items-stretch sm:gap-0.5 ${
+              unreadCount > 0 ? "grid-cols-4" : "grid-cols-3"
             }`}
           >
-            <Bell className="h-3 w-3 shrink-0" />
-            <span className="hidden sm:inline">Now</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("history")}
-            aria-label="Notification history"
-            title="History"
-            className={`${pillBase} ${
-              view === "history" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <History className="h-3 w-3 shrink-0" />
-            <span className="hidden sm:inline">Hist</span>
-            <span className={`${pillCount} ${view === "history" ? "text-white/80" : "text-slate-400"}`}>
-              {historyNotifications.length}
-            </span>
-          </button>
-
-          {filterTabs.map((tab) => {
-            const base = view === "history" ? historyNotifications : mergedNotifications;
-            const count = tab.key === "all" ? base.length : tab.key === "unread" ? base.filter((n) => n.status !== "read").length : base.filter((n) => n.type === tab.key).length;
-            const active = filter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFilter(tab.key)}
-                title={tab.label}
-                className={`${pillBase} ${
-                  active
-                    ? "border-blue-500 bg-blue-600 text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50"
-                }`}
-              >
-                <span className="truncate">{tab.label}</span>
-                <span className={`${pillCount} ${active ? "text-white/80" : "text-slate-400"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={loadData}
-            aria-label="Refresh notifications"
-            title="Refresh"
-            className={`${pillBase} app-button-secondary text-slate-600 hover:bg-slate-50`}
-          >
-            <RotateCw className="h-3 w-3 shrink-0" />
-          </button>
-          {unreadCount > 0 ? (
             <button
               type="button"
-              onClick={handleMarkAllRead}
-              aria-label="Mark all read"
-              title="Mark all read"
-              className={`${pillBase} app-button-primary text-white`}
+              onClick={() => setView("current")}
+              aria-label="Current notifications"
+              title="Current"
+              className={`${pillBase} ${
+                view === "current" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
             >
-              <CheckCheck className="h-3 w-3 shrink-0" />
+              <Bell className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Now</span>
             </button>
-          ) : null}
+            <button
+              type="button"
+              onClick={() => setView("history")}
+              aria-label="Notification history"
+              title="History"
+              className={`${pillBase} ${
+                view === "history" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <History className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Hist</span>
+              <span className={`${pillCount} ${view === "history" ? "text-white/80" : "text-slate-400"}`}>
+                {historyNotifications.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={loadData}
+              aria-label="Refresh notifications"
+              title="Refresh"
+              className={`${pillBase} app-button-secondary text-slate-600 hover:bg-slate-50`}
+            >
+              <RotateCw className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                aria-label="Mark all read"
+                title="Mark all read"
+                className={`${pillBase} app-button-primary text-white`}
+              >
+                <CheckCheck className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline">Read all</span>
+              </button>
+            ) : null}
+          </div>
+
+          <div className="notifications-toolbar-filters grid grid-cols-3 gap-1 sm:flex sm:items-stretch sm:gap-0.5">
+            {filterTabs.map((tab) => {
+              const base = view === "history" ? historyNotifications : mergedNotifications;
+              const count =
+                tab.key === "all"
+                  ? base.length
+                  : tab.key === "unread"
+                    ? base.filter((n) => n.status !== "read").length
+                    : base.filter((n) => n.type === tab.key).length;
+              const active = filter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setFilter(tab.key)}
+                  title={tab.label}
+                  className={`${pillBase} ${
+                    active
+                      ? "border-blue-500 bg-blue-600 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50"
+                  }`}
+                >
+                  <span className="whitespace-nowrap">{tab.label}</span>
+                  <span className={`${pillCount} ${active ? "text-white/80" : "text-slate-400"}`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {loading ? (

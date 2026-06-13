@@ -16,6 +16,8 @@ const LOAN_MERGE_FIELDS = [
   "collectionFrequency",
   "approvalStatus",
   "loanApprovedAt",
+  "loanAppliedAt",
+  "submittedAt",
   "nomineeName",
   "nomineeContact",
   "selectedDay",
@@ -37,6 +39,14 @@ function pickLoanField(customerValue, applicationValue) {
   return customerValue ?? applicationValue ?? "";
 }
 
+function pickLatestTimestamp(customerValue, applicationValue) {
+  const left = String(customerValue || "");
+  const right = String(applicationValue || "");
+  if (!left) return applicationValue ?? customerValue ?? "";
+  if (!right) return customerValue ?? "";
+  return right.localeCompare(left) > 0 ? applicationValue : customerValue;
+}
+
 export function mergeCustomersWithLoanApplications(customers = [], applications = []) {
   const latestByCustomer = new Map();
   applications.forEach((application) => {
@@ -54,6 +64,10 @@ export function mergeCustomersWithLoanApplications(customers = [], applications 
 
     const merged = { ...customer };
     LOAN_MERGE_FIELDS.forEach((field) => {
+      if (field === "submittedAt" || field === "loanAppliedAt" || field === "loanApprovedAt") {
+        merged[field] = pickLatestTimestamp(customer[field], application[field]);
+        return;
+      }
       merged[field] = pickLoanField(customer[field], application[field]);
     });
     return merged;
