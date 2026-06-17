@@ -26,7 +26,8 @@ export default function Login() {
   const [signingOut, setSigningOut] = useState(false);
   const [retryingProfile, setRetryingProfile] = useState(false);
 
-  const brokenSession = Boolean(!loading && user && !profile);
+  // Only show the broken-session panel when we're idle, not while a new login is in progress.
+  const brokenSession = Boolean(!loading && !busy && !signingOut && !retryingProfile && user && !profile);
 
   useEffect(() => {
     if (loading || !user || !profile) return;
@@ -78,7 +79,7 @@ export default function Login() {
     const trimmedPassword = String(password ?? "").trim();
 
     if (!trimmedIdentifier) {
-      setError("Enter your email or username.");
+      setError("Enter your admin email or employee username.");
       return;
     }
 

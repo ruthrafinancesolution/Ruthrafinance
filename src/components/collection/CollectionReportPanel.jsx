@@ -88,6 +88,7 @@ function reportTableCellContent(value, { truncate = false, title } = {}) {
 }
 import {
   downloadCollectionCustomerReport,
+  downloadCollectionCustomerReportXlsx,
   groupReportRowsBySubCenter,
   printCollectionCustomerReport,
 } from "../../utils/collectionCustomerReportPrint";
@@ -278,6 +279,7 @@ export default function CollectionReportPanel() {
   const [search, setSearch] = useState("");
   const [printLoading, setPrintLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [paidState, setPaidState] = useState(() => loadCollectionReportPaidState());
   const [pendingAmountRow, setPendingAmountRow] = useState(null);
   const [entryPersistError, setEntryPersistError] = useState("");
@@ -648,6 +650,23 @@ export default function CollectionReportPanel() {
     }
   }, [buildExportPayload]);
 
+  const handleExcel = useCallback(() => {
+    setExcelLoading(true);
+    try {
+      const payload = buildExportPayload();
+      if (!payload.sections.some((section) => section.rows?.length)) {
+        window.alert("No customers found for the selected filters.");
+        return;
+      }
+      downloadCollectionCustomerReportXlsx(payload);
+    } catch (excelError) {
+      console.error(excelError);
+      window.alert(excelError?.message || "Excel download failed. Please try again.");
+    } finally {
+      setExcelLoading(false);
+    }
+  }, [buildExportPayload]);
+
   const loading = syncLoading || employeesLoading;
 
   return (
@@ -695,7 +714,15 @@ export default function CollectionReportPanel() {
               >
                 Print
               </ExportToolbarButton>
-              <ExportToolbarButton variant="excel">Excel</ExportToolbarButton>
+              <ExportToolbarButton
+                variant="excel"
+                loading={excelLoading}
+                disabled={excelLoading || !reportRows.length}
+                onClick={handleExcel}
+                title="Download customer report Excel"
+              >
+                Excel
+              </ExportToolbarButton>
               <ExportToolbarButton
                 variant="pdf"
                 loading={pdfLoading}

@@ -171,6 +171,7 @@ export async function buildEnterpriseTabularReportPdf(payload) {
     origin = typeof window !== "undefined" ? window.location.origin : "",
     orientation = "landscape",
     columnRatios,
+    columnAligns = [],
     statusColumnIndices = [],
     currencyColumnIndices = [],
     columnKeys = [],
@@ -206,11 +207,19 @@ export async function buildEnterpriseTabularReportPdf(payload) {
   const colWidths = distributeColumnWidths(layout.contentW, ratios);
   const body = rows.map((row) => (mapRowToCells ? mapRowToCells(row) : row));
 
+  const resolvedAligns = headers.map((_, i) => {
+    const explicit = columnAligns[i];
+    if (explicit === "right" || explicit === "center" || explicit === "left") return explicit;
+    if (currencyColumnIndices.includes(i)) return "right";
+    if (statusColumnIndices.includes(i)) return "center";
+    return "left";
+  });
+
   const columnStyles = {};
   colWidths.forEach((w, i) => {
     columnStyles[i] = {
       cellWidth: w,
-      halign: currencyColumnIndices.includes(i) ? "right" : "left",
+      halign: resolvedAligns[i],
     };
   });
 
@@ -246,6 +255,10 @@ export async function buildEnterpriseTabularReportPdf(payload) {
     alternateRowStyles: { fillColor: PALETTE.surfaceAlt },
     columnStyles,
     didParseCell: (data) => {
+      if (data.section === "head") {
+        data.cell.styles.halign = resolvedAligns[data.column.index] || "left";
+        return;
+      }
       if (data.section !== "body") return;
       if (statusColumnIndices.includes(data.column.index)) {
         const status = data.cell.raw;
@@ -323,6 +336,7 @@ export function buildPreviewColumnsPdfPayload({
   const headers = columns.map((c) => c.label);
   const statusColumnIndices = columns.map((c, i) => (c.cellType === "status" ? i : -1)).filter((i) => i >= 0);
   const currencyColumnIndices = columns.map((c, i) => (c.cellType === "currency" ? i : -1)).filter((i) => i >= 0);
+  const columnAligns = columns.map((c) => c.align || (c.cellType === "currency" ? "right" : c.cellType === "status" ? "center" : "left"));
   const ori = orientation || (headers.length > 8 ? "landscape" : "portrait");
 
   return {
@@ -334,6 +348,7 @@ export function buildPreviewColumnsPdfPayload({
     orientation: ori,
     headers,
     rows,
+    columnAligns,
     mapRowToCells: (row) =>
       columns.map((col) => {
         const val = row[col.key];

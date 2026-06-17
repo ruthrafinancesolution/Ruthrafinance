@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 import BrandLogo from "../BrandLogo";
 import { formatCurrencyForPrint, toPrintCurrencyText } from "../../utils/formatCurrency.js";
+import { downloadPreviewColumnsXlsx } from "../../utils/collectionReportExports.js";
+import {
+  buildPreviewColumnsPdfPayload,
+  downloadEnterpriseTabularPdf,
+} from "../../utils/enterpriseTabularReportPdf.js";
 import { ExportToolbar, ExportToolbarButton } from "./ExportToolbar.jsx";
 
 /**
@@ -115,7 +120,17 @@ function buildPremiumPrintHtml({ title, subtitle, generatedAt, filterLines, repo
     ? `<ul class="filters">${filterLines.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
     : "";
 
-  const head = columns.map((c) => `<th>${escapeHtml(c.label)}</th>`).join("");
+  const head = columns.map((c) => `<th class="${c.align === "right" ? "right" : c.align === "center" ? "center" : "left"}">${escapeHtml(c.label)}</th>`).join("");
+  const colWidths = columns.map((column) => {
+    if (column.cellType === "currency") return 9;
+    if (column.cellType === "status") return 8;
+    if (/name|customer|remarks|collector/i.test(String(column.label || ""))) return 14;
+    return Math.max(7, Math.floor(100 / Math.max(columns.length, 1)));
+  });
+  const widthTotal = colWidths.reduce((sum, value) => sum + value, 0);
+  const colgroup = `<colgroup>${colWidths
+    .map((weight) => `<col style="width:${((weight / widthTotal) * 100).toFixed(2)}%" />`)
+    .join("")}</colgroup>`;
   const body = rows
     .map(
       (row) =>
@@ -152,9 +167,9 @@ function buildPremiumPrintHtml({ title, subtitle, generatedAt, filterLines, repo
   .ml { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 600; }
   .mv { font-size: 14px; font-weight: 700; margin-top: 4px; color: #0f172a; }
   .mn { font-size: 8px; color: #94a3b8; margin-top: 2px; }
-  table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
-  th { background: #0f4d5c; color: #f8fafc; font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 6px; text-align: left; }
-  td { border-bottom: 1px solid #f1f5f9; padding: 6px; vertical-align: top; }
+  table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; table-layout: fixed; }
+  th { background: #0f4d5c; color: #f8fafc; font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 6px; text-align: left; vertical-align: middle; word-wrap: break-word; }
+  td { border-bottom: 1px solid #f1f5f9; padding: 6px; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
   tr:nth-child(even) td { background: #f8fafc; }
   .right { text-align: right; }
   .center { text-align: center; }
@@ -172,7 +187,7 @@ function buildPremiumPrintHtml({ title, subtitle, generatedAt, filterLines, repo
     ${filterHtml}
   </div>
   ${metricHtml}
-  <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+  <table>${colgroup}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
   <p class="footer">Generated from Ruthra Financial Solutions System · Confidential — authorised use only</p>
 </div></body></html>`;
 }
@@ -207,6 +222,9 @@ export default function EnterpriseReportPreview({
   const [page, setPage] = useState(1);
   const [printPreviewMode, setPrintPreviewMode] = useState(false);
   const [toast, setToast] = useState(/** @type {{ message: string } | null} */ (null));
+  const [internalPdfLoading, setInternalPdfLoading] = useState(false);
+  const [internalExcelLoading, setInternalExcelLoading] = useState(false);
+  const [internalPrintLoading, setInternalPrintLoading] = useState(false);
   const printFrameRef = useRef(/** @type {HTMLIFrameElement | null} */ (null));
 
   useEffect(() => {
@@ -251,6 +269,34 @@ export default function EnterpriseReportPreview({
     const start = (safePage - 1) * pageSize;
     return sortedRows.slice(start, start + pageSize);
   }, [sortedRows, safePage, pageSize, printPreviewMode]);
+
+  const exportFilenamePrefix = useMemo(
+    () =>
+      String(title || "report")
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w-]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "report",
+    [title]
+  );
+
+  const buildTableExportPayload = useCallback(
+    () =>
+      buildPreviewColumnsPdfPayload({
+        title,
+        subtitle,
+        columns,
+        rows: sortedRows,
+        filterLines,
+        summaryCards: metrics.map((metric) => ({
+          label: metric.label,
+          value: metric.value,
+          note: metric.note,
+        })),
+        reportMeta: reportMeta || {},
+      }),
+    [columns, filterLines, metrics, reportMeta, sortedRows, subtitle, title]
+  );
 
   const handleSort = useCallback(
     (key) => {
@@ -304,33 +350,41 @@ export default function EnterpriseReportPreview({
   }, [columns, filterLines, generatedAt, metrics, reportMeta, sortedRows, subtitle, title]);
 
   const handlePrintInternal = useCallback(() => {
-    if (onPrint) {
-      void Promise.resolve(onPrint()).then(() => setToast({ message: "Print dialog opened" }));
-      return;
+    setInternalPrintLoading(true);
+    try {
+      runPremiumIframePrint();
+      setToast({ message: "Print-ready layout sent to printer" });
+    } catch {
+      setToast({ message: "Print failed — try again" });
+    } finally {
+      setInternalPrintLoading(false);
     }
-    runPremiumIframePrint();
-    setToast({ message: "Print-ready layout sent to printer" });
-  }, [onPrint, runPremiumIframePrint]);
+  }, [runPremiumIframePrint]);
 
   const handlePdfClick = useCallback(async () => {
-    if (!onDownloadPdf) return;
+    setInternalPdfLoading(true);
     try {
-      await onDownloadPdf();
+      await downloadEnterpriseTabularPdf(buildTableExportPayload(), exportFilenamePrefix);
       setToast({ message: "PDF downloaded successfully" });
     } catch {
       setToast({ message: "PDF export failed — try again" });
+    } finally {
+      setInternalPdfLoading(false);
     }
-  }, [onDownloadPdf]);
+  }, [buildTableExportPayload, exportFilenamePrefix]);
 
   const handleExcelClick = useCallback(async () => {
-    if (!onDownloadExcel) return;
+    setInternalExcelLoading(true);
     try {
-      await onDownloadExcel();
+      await Promise.resolve();
+      downloadPreviewColumnsXlsx(columns, sortedRows, exportFilenamePrefix);
       setToast({ message: "Excel file downloaded" });
     } catch {
       setToast({ message: "Excel export failed — try again" });
+    } finally {
+      setInternalExcelLoading(false);
     }
-  }, [onDownloadExcel]);
+  }, [columns, exportFilenamePrefix, sortedRows]);
 
   const handleShare = useCallback(async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -350,6 +404,9 @@ export default function EnterpriseReportPreview({
   if (!open) return null;
 
   const meta = reportMeta || {};
+  const pdfBusy = pdfLoading || internalPdfLoading;
+  const excelBusy = excelLoading || internalExcelLoading;
+  const printBusy = printLoading || internalPrintLoading;
 
   return (
     <div
@@ -368,17 +425,13 @@ export default function EnterpriseReportPreview({
 
         <div className="erp-preview-toolbar relative flex flex-shrink-0 flex-col gap-2 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-teal-50/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4 print:hidden">
           <ExportToolbar className="min-w-0 w-full sm:w-auto">
-            {onDownloadPdf ? (
-              <ExportToolbarButton variant="pdf" loading={pdfLoading} disabled={pdfLoading} onClick={() => void handlePdfClick()}>
-                PDF
-              </ExportToolbarButton>
-            ) : null}
-            {onDownloadExcel ? (
-              <ExportToolbarButton variant="excel" loading={excelLoading} disabled={excelLoading} onClick={() => void handleExcelClick()}>
-                Excel
-              </ExportToolbarButton>
-            ) : null}
-            <ExportToolbarButton variant="print" loading={printLoading} disabled={printLoading} onClick={handlePrintInternal}>
+            <ExportToolbarButton variant="pdf" loading={pdfBusy} disabled={pdfBusy} onClick={() => void handlePdfClick()}>
+              PDF
+            </ExportToolbarButton>
+            <ExportToolbarButton variant="excel" loading={excelBusy} disabled={excelBusy} onClick={() => void handleExcelClick()}>
+              Excel
+            </ExportToolbarButton>
+            <ExportToolbarButton variant="print" loading={printBusy} disabled={printBusy} onClick={handlePrintInternal}>
               Print
             </ExportToolbarButton>
             <ExportToolbarButton

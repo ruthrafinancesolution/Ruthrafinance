@@ -13,13 +13,13 @@ import { getFirebaseProjectId, isUsingFirebaseEmulators } from "./environment";
 
 /** Firebase project config — production values are defaults; override via VITE_FIREBASE_* in .env files. */
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDwQJ8-9Ttp3xJ9Tr7Yruj0iVFfFP99ymE",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "sandraloanapp-85985.firebaseapp.com",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyA5JBBxTPb79HXR7ehh-OtbYJaMmIkl1Mg",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "ruthrafinance-94697.firebaseapp.com",
   projectId: getFirebaseProjectId(),
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "sandraloanapp-85985.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "930341187943",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:930341187943:web:0efc3126570f197e57ffc2",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-BDXCN9KNP9",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "ruthrafinance-94697.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "731377916317",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:731377916317:web:550d8871a775047c153774",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-RT48QQ9YPK",
 };
 
 const app = initializeApp(firebaseConfig);

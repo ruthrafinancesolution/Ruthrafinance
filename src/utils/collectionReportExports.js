@@ -16,6 +16,35 @@ function downloadBlob(filename, blob) {
   URL.revokeObjectURL(url);
 }
 
+/** Excel export matching EnterpriseReportPreview column order and visible rows. */
+export function downloadPreviewColumnsXlsx(columns = [], rows = [], filenamePrefix = "report", stamp = reportDateStamp()) {
+  const sheetRows = rows.map((row) => {
+    const out = {};
+    columns.forEach((column) => {
+      const raw = row[column.key];
+      if (column.cellType === "currency") {
+        out[column.label] = Number(raw || 0);
+        return;
+      }
+      out[column.label] = raw ?? "";
+    });
+    return out;
+  });
+  const ws = XLSX.utils.json_to_sheet(sheetRows.length ? sheetRows : [{ Note: "No rows in this view" }]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Report");
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const safePrefix = String(filenamePrefix || "report")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "report";
+  downloadBlob(
+    `${safePrefix}-${stamp}.xlsx`,
+    new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+  );
+}
+
 /** @param {object[]} rows — same shape as Reports detailRows */
 export function downloadCollectionReportCsv(rows, stamp = reportDateStamp()) {
   const content = rowsToCsv([

@@ -106,6 +106,14 @@ export function AuthProvider({ children }) {
         return;
       }
 
+      // Prevent stale profile data (e.g., admin) from briefly triggering navigation
+      // for the newly signed-in user (e.g., employee).
+      if (profileUidRef.current !== firebaseUser.uid) {
+        loginProfileLockRef.current = null;
+        setProfile(null);
+        profileUidRef.current = null;
+      }
+
       try {
         await withTimeout(firebaseUser.getIdToken(), AUTH_INIT_TIMEOUT_MS, "Auth session");
         if (initGeneration !== authInitGenerationRef.current) return;

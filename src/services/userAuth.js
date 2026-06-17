@@ -63,6 +63,43 @@ const EMPLOYEE_LOGINS_COLLECTION = "employee_logins";
 const ADMIN_EMAIL = "admin@loanweb.com";
 const ADMIN_PASSWORD = "Admin@123";
 const ADMIN_EMPLOYEE_ID = "ADM-0001";
+const EMPLOYEE_AUTH_EMAIL_DOMAIN = "@employees.loanweb";
+
+function getConfiguredAdminEmails() {
+  const configured = String(import.meta.env.VITE_ADMIN_EMAIL || import.meta.env.VITE_ADMIN_EMAILS || "")
+    .split(",")
+    .map((value) => normalizeText(value).toLowerCase())
+    .filter(Boolean);
+  return new Set([ADMIN_EMAIL.toLowerCase(), ...configured]);
+}
+
+function isAdminAuthEmail(email) {
+  return getConfiguredAdminEmails().has(normalizeText(email).toLowerCase());
+}
+
+function isEmployeeAuthEmail(email) {
+  return normalizeText(email).toLowerCase().endsWith(EMPLOYEE_AUTH_EMAIL_DOMAIN);
+}
+
+async function hasAnyAdminProfile() {
+  const snapshot = await getDocs(query(collection(db, USERS_COLLECTION), where("role", "==", "admin")));
+  return !snapshot.empty;
+}
+
+async function shouldBootstrapAsAdmin(email, loggedInViaEmail) {
+  if (!loggedInViaEmail) return false;
+
+  const normalizedEmail = normalizeText(email).toLowerCase();
+  if (!normalizedEmail || isEmployeeAuthEmail(normalizedEmail)) return false;
+  if (normalizedEmail === DEMO_EMPLOYEE_EMAIL.toLowerCase()) return false;
+  if (isAdminAuthEmail(normalizedEmail)) return true;
+
+  try {
+    return !(await hasAnyAdminProfile());
+  } catch {
+    return false;
+  }
+}
 
 /** Default collector / employee account (created on first app load when no user is signed in). */
 const DEMO_EMPLOYEE_EMAIL = "employee@loanweb.com";
@@ -135,8 +172,13 @@ export async function resolveLoginEmail(identifier) {
   if (!raw) {
     throw new Error("Username or email is required.");
   }
-  if (raw.includes("@")) return raw.toLowerCase();
 
+  // Admin sign-in uses the real Firebase Auth email exactly as entered.
+  if (raw.includes("@")) {
+    return raw.toLowerCase();
+  }
+
+  // Employee sign-in uses username only.
   const normalizedUsername = normalizeUsername(raw);
   try {
     const mappingSnap = await getDoc(doc(db, EMPLOYEE_LOGINS_COLLECTION, normalizedUsername));
@@ -735,14 +777,19 @@ async function ensureUserProfile({ uid, email, role, displayName, employeeId }) 
 }
 
 /** Ensures Firestore profile matches Auth (e.g. role) without wiping other fields. */
-async function ensureAdminProfileForUid(uid) {
+async function ensureAdminProfileForUid(uid, email = ADMIN_EMAIL) {
   const userRef = doc(db, USERS_COLLECTION, uid);
   const snapshot = await getDoc(userRef);
+  const normalizedEmail = normalizeText(email).toLowerCase() || ADMIN_EMAIL.toLowerCase();
+  const displayName =
+    snapshot.data()?.displayName ||
+    normalizedEmail.split("@")[0]?.replace(/[._-]+/g, " ").trim() ||
+    "Loan Web Admin";
   const base = {
     uid,
-    email: ADMIN_EMAIL,
+    email: normalizedEmail,
     role: "admin",
-    displayName: "Loan Web Admin",
+    displayName,
     employeeId: ADMIN_EMPLOYEE_ID,
   };
   try {
@@ -827,6 +874,37 @@ async function ensureDemoEmployeeProfileForUid(uid) {
     { merge: true }
   );
   await setEmployeeLoginMapping("demo", DEMO_EMPLOYEE_EMAIL, uid);
+}
+
+async function ensureEmployeeProfileForUid(uid, email) {
+  const userRef = doc(db, USERS_COLLECTION, uid);
+  const normalizedEmail = normalizeText(email).toLowerCase();
+  if (!normalizedEmail) {
+    throw new Error("Employee email is required to create a profile.");
+  }
+
+  const usernameCandidate = normalizedEmail.split("@")[0] || "employee";
+  const username = normalizeUsername(usernameCandidate) || "employee";
+
+  const snapshot = await getDoc(userRef);
+  if (!snapshot.exists()) {
+    const base = {
+      uid,
+      email: normalizedEmail,
+      role: "employee",
+      displayName: normalizeText(usernameCandidate),
+      phone: "",
+      employeeStatus: "active",
+      username,
+      employeeId: makeEmployeeId(),
+      assignedCenters: ["Monday Centre"],
+      location: "Monday Centre",
+    };
+
+    await setDoc(userRef, { ...base, createdAt: serverTimestamp() });
+  }
+
+  await setEmployeeLoginMapping(username, normalizedEmail, uid);
 }
 
 /** Avoids re-running sign-in bootstrap on every refresh (Firebase rate-limits burst sign-ins). */
@@ -1053,6 +1131,8 @@ export async function seedDefaultAccounts() {
 export const seedAdminAccount = seedDefaultAccounts;
 
 export async function loginWithRole({ email, password }) {
+  const rawIdentifier = normalizeText(email);
+  const loggedInViaEmail = rawIdentifier.includes("@");
   const normalizedEmail = await resolveLoginEmail(email);
   const loginPassword = String(password ?? "").trim();
   if (!loginPassword) {
@@ -1066,9 +1146,9 @@ export async function loginWithRole({ email, password }) {
     const code = authError?.code || "";
     if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
       const identifier = normalizeText(email);
-      const loginHint = identifier.includes("@")
-        ? "Check the email and password from your admin."
-        : `Sign in with your username "${normalizeUsername(identifier)}" and the exact password set by your admin (case-sensitive).`;
+      const loginHint = loggedInViaEmail
+        ? "Check your admin email and password."
+        : `Sign in with your username "${normalizeUsername(identifier)}" and the password set by your admin (case-sensitive).`;
       throw new Error(`Invalid username or password. ${loginHint}`);
     }
     if (code === "auth/user-not-found") {
@@ -1077,9 +1157,9 @@ export async function loginWithRole({ email, password }) {
         ? identifier.toLowerCase()
         : normalizeUsername(identifier);
       throw new Error(
-        identifier.includes("@")
-          ? `No login account found for ${loginTarget}. Ask your admin to create your employee login from the Employee page.`
-          : `No login account found for username "${loginTarget}". Ask your admin to create or reset your login from the Employee page.`
+        loggedInViaEmail
+          ? `No admin account found for ${loginTarget}. Check the email or create the admin user in Firebase Authentication.`
+          : `No login account found for username "${loginTarget}". Ask your admin to create your employee login from the Employee page.`
       );
     }
     if (code === "auth/too-many-requests") {
@@ -1110,8 +1190,8 @@ export async function loginWithRole({ email, password }) {
   const signedInEmail = (credential.user.email || "").toLowerCase();
 
   if (!profileSnap.exists()) {
-    if (signedInEmail === ADMIN_EMAIL.toLowerCase()) {
-      await ensureAdminProfileForUid(credential.user.uid);
+    if (await shouldBootstrapAsAdmin(signedInEmail, loggedInViaEmail)) {
+      await ensureAdminProfileForUid(credential.user.uid, signedInEmail);
       const created = await getDoc(profileRef);
       if (created.exists()) {
         return { credential, profile: created.data() };
@@ -1124,20 +1204,35 @@ export async function loginWithRole({ email, password }) {
         return { credential, profile: created.data() };
       }
     }
+    if (!loggedInViaEmail) {
+      try {
+        await ensureEmployeeProfileForUid(credential.user.uid, signedInEmail);
+        const created = await getDoc(profileRef);
+        if (created.exists()) {
+          return { credential, profile: created.data() };
+        }
+      } catch {
+        await signOut(auth);
+        throw new Error(
+          "Login succeeded, but your employee profile is missing. Ask an admin to edit this employee on the Employee page, set the password, and save again."
+        );
+      }
+    }
+
     await signOut(auth);
     const identifier = normalizeText(signedInEmail);
     const usernameLabel = identifier.includes("@") ? identifier : normalizeUsername(identifier);
     throw new Error(
-      signedInEmail === ADMIN_EMAIL.toLowerCase()
-        ? "Admin sign-in succeeded but the admin profile could not be saved. Deploy the latest Firestore rules (firebase deploy --only firestore:rules) and try again."
-        : `Login account exists for "${usernameLabel}" but the employee profile is missing. Ask an admin to edit this employee on the Employee page, set the password, and save again.`
+      loggedInViaEmail
+        ? `Admin sign-in succeeded for "${usernameLabel}" but the admin profile could not be saved. Deploy Firestore rules (firebase deploy --only firestore:rules) and try again.`
+        : `Login account exists for "${usernameLabel}" but the employee profile is still missing. Ask an admin to edit this employee on the Employee page and save again.`
     );
   }
 
   let profile = profileSnap.data();
 
-  if (signedInEmail === ADMIN_EMAIL.toLowerCase()) {
-    await ensureAdminProfileForUid(credential.user.uid);
+  if (profile.role === "admin" || (loggedInViaEmail && isAdminAuthEmail(signedInEmail))) {
+    await ensureAdminProfileForUid(credential.user.uid, signedInEmail);
     const refreshed = await getDoc(profileRef);
     if (refreshed.exists()) {
       profile = refreshed.data();

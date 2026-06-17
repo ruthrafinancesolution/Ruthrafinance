@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { NO_SUB_CENTER_LABEL, resolveCustomerCenterDisplay } from "./centerDisplay.js";
 import { ensurePdfUnicodeFont } from "./pdfUnicodeFont.js";
 import { reportDateStamp } from "./reportFilenames.js";
@@ -189,6 +190,13 @@ function cellAlignClass(align) {
 function buildDetailTableHtml(rows, paidState) {
   if (!rows.length) return "";
 
+  const colWeights = [8, 12, 8, 8, 7, 6, 7, 6, 8, 7, 6, 6];
+  const widthTotal = colWeights.reduce((sum, value) => sum + value, 0);
+  const colgroup = `<colgroup>${PRINT_COLUMNS.map((_, index) => {
+    const weight = colWeights[index] || 8;
+    return `<col style="width:${((weight / widthTotal) * 100).toFixed(2)}%" />`;
+  }).join("")}</colgroup>`;
+
   const headerCells = PRINT_COLUMNS.map(
     (column) =>
       `<th class="${cellAlignClass(column.align)}">${escapeHtml(column.label)}</th>`
@@ -210,6 +218,7 @@ function buildDetailTableHtml(rows, paidState) {
 
   return `
     <table class="detail-table">
+      ${colgroup}
       <thead><tr>${headerCells}</tr></thead>
       <tbody>${bodyRows}</tbody>
     </table>
@@ -620,17 +629,59 @@ export async function downloadCollectionCustomerReport(payload, stamp = reportDa
         head,
         body,
         margin: { left: margin, right: margin },
-        styles: { font: pdfFont, fontSize: 7, cellPadding: 1.4 },
+        tableWidth: "auto",
+        styles: { font: pdfFont, fontSize: 7, cellPadding: 1.4, overflow: "linebreak", valign: "middle" },
         headStyles: {
           fillColor: [17, 94, 89],
           textColor: 255,
           fontStyle: "bold",
           fontSize: 6.5,
+          halign: "center",
         },
+        columnStyles: PRINT_COLUMNS.reduce((styles, column, index) => {
+          styles[index] = {
+            halign: column.align === "right" ? "right" : column.align === "center" ? "center" : "left",
+          };
+          return styles;
+        }, {}),
       });
       y = doc.lastAutoTable.finalY + 6;
     });
   }
 
   doc.save(`collection-customer-report-${stamp}.pdf`);
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadCollectionCustomerReportXlsx(payload, stamp = reportDateStamp()) {
+  const { sections = [], paidState = { drafts: {}, committed: {} } } = payload;
+  const sheetRows = [];
+
+  sections.forEach((section) => {
+    (section.rows || []).forEach((row) => {
+      const mapped = mapRowForPrint(row, paidState);
+      const record = { Section: section.subCenter || "—" };
+      PRINT_COLUMNS.forEach((column) => {
+        record[column.label] = mapped[column.key] ?? "—";
+      });
+      sheetRows.push(record);
+    });
+  });
+
+  const ws = XLSX.utils.json_to_sheet(sheetRows.length ? sheetRows : [{ Note: "No rows in this view" }]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Collection");
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  downloadBlob(
+    `collection-customer-report-${stamp}.xlsx`,
+    new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+  );
 }
