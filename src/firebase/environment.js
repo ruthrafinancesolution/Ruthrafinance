@@ -1,5 +1,5 @@
 /** Live production Firebase project — deployed hosting must use this. */
-export const PRODUCTION_FIREBASE_PROJECT_ID = "ruthrafinance-94697";
+export const PRODUCTION_FIREBASE_PROJECT_ID = "ruthrafinancesolutions";
 
 export function getFirebaseProjectId() {
   return import.meta.env.VITE_FIREBASE_PROJECT_ID || PRODUCTION_FIREBASE_PROJECT_ID;
