@@ -604,6 +604,7 @@ async function buildLoanApplicationRecord({
   loanPresetTotalPayable = 0,
   disbursementDate,
   dueDate,
+  loanIssueDate = "",
   collectionFrequency,
   nomineeName,
   nomineeContact,
@@ -649,6 +650,7 @@ async function buildLoanApplicationRecord({
   const normalizedFrequency = normalizeText(collectionFrequency) || "Weekly";
   const finalDisbursementDate = disbursementDate || now.toISOString().slice(0, 10);
   const finalDueDate = dueDate || buildDueDate(finalDisbursementDate, loanWeeks, normalizedFrequency);
+  const finalLoanIssueDate = normalizeText(loanIssueDate) || now.toISOString().slice(0, 10);
 
   return {
     customerId: finalCustomerId,
@@ -678,6 +680,7 @@ async function buildLoanApplicationRecord({
     loanPresetTotalPayable: Number(loanPresetTotalPayable || 0),
     disbursementDate: finalDisbursementDate,
     dueDate: finalDueDate,
+    loanIssueDate: finalLoanIssueDate,
     collectionFrequency: normalizedFrequency,
     nomineeName: normalizeText(nomineeName),
     nomineeContact: normalizeText(nomineeContact),
@@ -2008,6 +2011,7 @@ export async function upsertLoanApplication({
   loanPresetTotalPayable,
   disbursementDate,
   dueDate,
+  loanIssueDate = "",
   collectionFrequency,
   nomineeName,
   nomineeContact,
@@ -2064,6 +2068,7 @@ export async function upsertLoanApplication({
     loanPresetTotalPayable,
     disbursementDate,
     dueDate,
+    loanIssueDate,
     collectionFrequency,
     nomineeName,
     nomineeContact,

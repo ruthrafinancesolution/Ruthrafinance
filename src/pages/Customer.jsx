@@ -418,22 +418,6 @@ export default function Customer() {
     >
       <div className="flex h-[calc(100vh-5.5rem)] w-full min-w-0 max-w-full flex-col gap-3 overflow-hidden px-0.5 md:px-0 lg:max-w-[min(1440px,100%)]">
         <FirebaseSyncAlert error={error} customerCount={customers.length} loading={loading} />
-        {isAdmin && statusFilter === "Active" && deletedCount > 0 ? (
-          <div className="shrink-0 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <p className="font-semibold">{deletedCount} customer(s) are hidden (soft-deleted)</p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-900">
-              They still exist in Firebase but were removed from the Active list. Open the{" "}
-              <button
-                type="button"
-                onClick={() => setStatusFilter("Deleted")}
-                className="font-semibold text-amber-950 underline"
-              >
-                Deleted
-              </button>{" "}
-              tab to restore them.
-            </p>
-          </div>
-        ) : null}
         {toast ? (
           <div className="app-alert-success shrink-0 py-2 text-sm" role="status">
             {toast}

@@ -7,6 +7,7 @@ import {
   FileText,
   Landmark,
   Loader2,
+  Phone,
   ShieldAlert,
   Shield,
   TrendingUp,
@@ -15,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { DocumentCompactAttach, DocumentPhotoTile } from "./DocumentUploadControls";
+import PhoneOtpVerificationModal from "./PhoneOtpVerificationModal";
 import {
   IDENTITY_TYPE_OPTIONS,
   coerceIdentityType,
@@ -176,6 +178,9 @@ export default function CustomerCreateStreamlinedForm({
   const [crifPrecheckError, setCrifPrecheckError] = useState("");
   const [crifModalOpen, setCrifModalOpen] = useState(false);
   const [highlightedFields, setHighlightedFields] = useState(() => new Set());
+  const [primaryPhoneVerified, setPrimaryPhoneVerified] = useState(false);
+  const [verifiedAtPhone, setVerifiedAtPhone] = useState("");
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
   const strictOnboarding = !isEdit;
 
   const allCenters = useMemo(() => loadLoanCenters(), []);
@@ -189,6 +194,14 @@ export default function CustomerCreateStreamlinedForm({
     });
   }, []);
   const phoneDigitsOk = form.mobileNumber.length === 10 && !phoneError;
+  const initialMobileDigits = useMemo(
+    () => String(initialData?.mobileNumber || "").replace(/\D/g, "").slice(0, 10),
+    [initialData?.mobileNumber]
+  );
+  const mobileChangedFromSaved = isEdit && form.mobileNumber !== initialMobileDigits;
+  const otpRequired = strictOnboarding || mobileChangedFromSaved;
+  const submitBlockedByOtp = otpRequired && !primaryPhoneVerified;
+  const canOpenOtp = !primaryPhoneVerified && phoneDigitsOk;
   const dayOptions = DAY_CENTER_LABELS;
   const daySelectOptions = useMemo(
     () => (form.selectedDay && !DAY_CENTER_LABELS.includes(form.selectedDay) ? [form.selectedDay, ...DAY_CENTER_LABELS] : DAY_CENTER_LABELS),
@@ -263,7 +276,18 @@ export default function CustomerCreateStreamlinedForm({
     setApplicantPhotoPreview(initialData.customerPhotoDataUrl || "");
     setCrifDemoResult(initialData.crifDemoEligibility || null);
     setLastEligibilityCheckedAt(initialData.lastEligibilityCheckedAt || null);
+    const savedMobile = String(initialData.mobileNumber || "").replace(/\D/g, "").slice(0, 10);
+    setPrimaryPhoneVerified(Boolean(savedMobile));
+    setVerifiedAtPhone(savedMobile);
   }, [initialData, initialSelectedDay, initialSelectedCenter]);
+
+  useEffect(() => {
+    const digits = String(form.mobileNumber || "").replace(/\D/g, "").slice(0, 10);
+    if (!digits || !verifiedAtPhone) return;
+    if (digits !== verifiedAtPhone) {
+      setPrimaryPhoneVerified(false);
+    }
+  }, [form.mobileNumber, verifiedAtPhone]);
 
   const crifTierStyles = useMemo(() => {
     const tier = crifDemoResult?.creditTier;
@@ -498,6 +522,11 @@ export default function CustomerCreateStreamlinedForm({
       setError("Please fix validation errors.");
       return;
     }
+    if (submitBlockedByOtp) {
+      setHighlightedFields(new Set(["mobileNumber"]));
+      setError("Verify the mobile number with OTP before saving.");
+      return;
+    }
 
     setHighlightedFields(new Set());
 
@@ -588,16 +617,34 @@ export default function CustomerCreateStreamlinedForm({
 
               <div>
                 <RequiredLabel label="Mobile Number" required />
-                <input
-                  value={form.mobileNumber}
-                  onChange={updatePhone}
-                  inputMode="numeric"
-                  maxLength={10}
-                  className={fieldClass("app-input h-11 w-full text-sm transition", isHighlighted("mobileNumber"))}
-                  placeholder="10-digit mobile number"
-                  required
-                  aria-invalid={isHighlighted("mobileNumber") || undefined}
-                />
+                <div className="flex flex-wrap items-start gap-2">
+                  <input
+                    value={form.mobileNumber}
+                    onChange={updatePhone}
+                    inputMode="numeric"
+                    maxLength={10}
+                    className={fieldClass("app-input h-11 min-w-0 flex-1 text-sm transition", isHighlighted("mobileNumber"))}
+                    placeholder="10-digit mobile number"
+                    required
+                    aria-invalid={isHighlighted("mobileNumber") || undefined}
+                  />
+                  {canOpenOtp ? (
+                    <button
+                      type="button"
+                      onClick={() => setOtpModalOpen(true)}
+                      className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-gradient-to-r from-teal-600 to-cyan-600 px-4 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-105"
+                    >
+                      <Phone className="h-3.5 w-3.5" aria-hidden />
+                      Verify OTP
+                    </button>
+                  ) : null}
+                  {primaryPhoneVerified ? (
+                    <span className="inline-flex h-11 shrink-0 items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-semibold text-emerald-800">
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden />
+                      Mobile verified
+                    </span>
+                  ) : null}
+                </div>
                 <FieldError message={phoneError || (isHighlighted("mobileNumber") ? "Mobile number is required." : "")} />
               </div>
 
@@ -882,7 +929,7 @@ export default function CustomerCreateStreamlinedForm({
             ) : null}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || submitBlockedByOtp}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-900 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:brightness-105 disabled:opacity-60"
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -891,6 +938,17 @@ export default function CustomerCreateStreamlinedForm({
           </div>
         </div>
       </section>
+
+      <PhoneOtpVerificationModal
+        isOpen={otpModalOpen}
+        phone={form.mobileNumber}
+        onVerified={() => {
+          setPrimaryPhoneVerified(true);
+          setVerifiedAtPhone(String(form.mobileNumber).replace(/\D/g, "").slice(0, 10));
+          setOtpModalOpen(false);
+        }}
+        onClose={() => setOtpModalOpen(false)}
+      />
 
       {crifModalOpen && crifDemoResult ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" onClick={(e) => e.target === e.currentTarget && setCrifModalOpen(false)}>

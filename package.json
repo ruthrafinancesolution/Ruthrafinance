@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --configLoader native",
     "dev:emulator": "vite --mode emulator --configLoader native",
-    "emulators": "npx firebase emulators:start --only auth,firestore",
+    "emulators": "npx firebase emulators:start --only auth,firestore,functions",
     "build": "vite build --configLoader native",
     "lint": "eslint .",
     "preview": "vite preview --configLoader native",
@@ -18,7 +18,8 @@
     "deploy:live": "npm run deploy:hosting",
     "deploy:firebase": "npm run build && npx firebase deploy --only hosting,firestore:rules",
     "deploy:firestore": "npx firebase deploy --only firestore",
-    "deploy:firestore-rules": "npx firebase deploy --only firestore:rules"
+    "deploy:firestore-rules": "npx firebase deploy --only firestore:rules",
+    "deploy:functions": "npx firebase deploy --only functions --project ruthrafinancesolutions"
   },
   "dependencies": {
     "@capacitor/android": "^7.2.0",

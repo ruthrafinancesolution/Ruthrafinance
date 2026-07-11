@@ -150,7 +150,12 @@ function LoanSummaryStatsGrid({
   onEmiDraftChange,
   onEmiEditSave,
   onEmiEditCancel,
+  loanIssueDateEditable = false,
+  onLoanIssueDateChange,
 }) {
+  const toneStyles = {
+    slate: "border-slate-200/90 bg-gradient-to-br from-slate-50/95 via-white to-white text-slate-600",
+  };
   return (
     <div className={`grid gap-2 ${compact ? "grid-cols-2" : "grid-cols-1 gap-3 sm:grid-cols-2"}`}>
       {emiEditing ? (
@@ -201,7 +206,25 @@ function LoanSummaryStatsGrid({
       <LoanSummaryStatCard compact={compact} icon={Wallet} label="Interest amount" value={formatInr(interestAmount)} tone="amber" />
       <LoanSummaryStatCard compact={compact} icon={IndianRupee} label="Total payable" value={formatInr(totalPayable)} highlight tone="emerald" />
       <LoanSummaryStatCard compact={compact} icon={CalendarDays} label="EMI end date" value={formatSummaryDate(emiEndDate)} tone="emerald" />
-      <LoanSummaryStatCard compact={compact} icon={Clock} label="Loan issue date" value={formatSummaryDate(loanIssueDate)} tone="slate" />
+      {loanIssueDateEditable ? (
+        <div
+          className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 ${toneStyles.slate}`}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="loan-apply-label">Loan issue date</p>
+            <input
+              id="loan-issue-date"
+              type="date"
+              value={loanIssueDate || ""}
+              onChange={(event) => onLoanIssueDateChange?.(event.target.value)}
+              className="loan-apply-field h-8 w-full min-w-0 px-2 text-sm font-semibold tabular-nums"
+            />
+          </div>
+          <Clock className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+        </div>
+      ) : (
+        <LoanSummaryStatCard compact={compact} icon={Clock} label="Loan issue date" value={formatSummaryDate(loanIssueDate)} tone="slate" />
+      )}
       <LoanSummaryStatCard compact={compact} icon={CalendarDays} label="EMI start date" value={formatSummaryDate(emiStartDate)} tone="blue" />
     </div>
   );
@@ -257,7 +280,6 @@ export default function LoanApply() {
   const { customerId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const now = useMemo(() => new Date(), []);
   const { balance: walletBalance } = useWalletAvailable();
 
   const [customer, setCustomer] = useState(location.state?.customer || null);
@@ -291,6 +313,7 @@ export default function LoanApply() {
   const [loanAmount, setLoanAmount] = useState("");
   const [loanWeeks, setLoanWeeks] = useState(20);
   const [disbursementDate, setDisbursementDate] = useState("");
+  const [loanIssueDate, setLoanIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [collectionFrequency, setCollectionFrequency] = useState("Weekly");
   const [loanId, setLoanId] = useState("");
@@ -361,7 +384,7 @@ export default function LoanApply() {
   const loanTimelinePreview = useMemo(
     () =>
       resolveLoanTimelineDates({
-        loanIssueDate: resolveLoanIssueDate(now),
+        loanIssueDate,
         emiStartDate,
         emiEndDate: resolvedDueDate,
         disbursementDate,
@@ -369,7 +392,7 @@ export default function LoanApply() {
         loanWeeks,
         collectionFrequency,
       }),
-    [collectionFrequency, disbursementDate, emiStartDate, loanWeeks, now, resolvedDueDate]
+    [collectionFrequency, disbursementDate, emiStartDate, loanIssueDate, loanWeeks, resolvedDueDate]
   );
 
   const loanSheetData = useMemo(
@@ -540,6 +563,10 @@ export default function LoanApply() {
     setLoanAmount(customer.loanAmount ?? "");
     setLoanWeeks(customer.loanWeeks || 20);
     setDisbursementDate(customer.disbursementDate || new Date().toISOString().slice(0, 10));
+    setLoanIssueDate(
+      customer.loanIssueDate ||
+        resolveLoanIssueDate(customer.loanApprovedAt || customer.submittedAt || new Date())
+    );
     setDueDate(customer.dueDate || "");
     setCollectionFrequency(customer.collectionFrequency || "Weekly");
   }, [customer, hydrateNomineeFromCustomer]);
@@ -822,6 +849,7 @@ export default function LoanApply() {
         loanPresetTotalPayable: totalPayable,
         disbursementDate,
         dueDate: resolvedDueDate,
+        loanIssueDate: loanIssueDate || resolveLoanIssueDate(new Date()),
         collectionFrequency,
         nomineeName: nomineeName.trim(),
         nomineeContact,
@@ -862,7 +890,7 @@ export default function LoanApply() {
         }
       }
 
-      const loanIssueDate = resolveLoanIssueDate(new Date());
+      const savedLoanIssueDate = loanIssueDate || resolveLoanIssueDate(new Date());
 
       clearLoanApplyIntent(customer.customerId);
 
@@ -872,7 +900,7 @@ export default function LoanApply() {
         totalPayable,
         interestAmount,
         dueDate: resolvedDueDate,
-        loanIssueDate,
+        loanIssueDate: savedLoanIssueDate,
         emiStartDate: emiStartDate || resolveEmiStartDate(disbursementDate),
         emiEndDate: resolvedDueDate,
         presetLabel: activePreset ? formatPresetLabel(activePreset) : "",
@@ -1147,9 +1175,11 @@ export default function LoanApply() {
                   emiAmount={emiAmount}
                   interestAmount={interestAmount}
                   totalPayable={totalPayable}
-                  loanIssueDate={loanTimelinePreview.loanIssueDate}
+                  loanIssueDate={loanIssueDate}
                   emiStartDate={loanTimelinePreview.emiStartDate}
                   emiEndDate={loanTimelinePreview.emiEndDate}
+                  loanIssueDateEditable
+                  onLoanIssueDateChange={setLoanIssueDate}
                   emiEditable
                   emiEditing={emiEditing}
                   emiDraft={emiDraft}

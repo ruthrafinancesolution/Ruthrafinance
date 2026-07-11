@@ -1,20 +1,21 @@
-/**
- * Demo phone OTP — replace with Twilio, MSG91, Firebase Phone Auth, Fast2SMS, etc.
- * Keep the same surface: generateOtp, validateOtpInput, buildDemoSmsPreview, maskPhoneForDisplay.
- */
+/** Shared OTP UI constants (SMS delivery is handled by Cloud Functions). */
 
-export const DEMO_OTP_LENGTH = 6;
-export const DEMO_OTP_EXPIRY_SEC = 60;
-export const DEMO_OTP_RESEND_COOLDOWN_SEC = 30;
-export const DEMO_OTP_MAX_ATTEMPTS = 5;
-export const DEMO_OTP_BRAND = "Ruthra Financial Solutions";
+export const OTP_LENGTH = 6;
+export const OTP_EXPIRY_SEC = 300;
+export const OTP_RESEND_COOLDOWN_SEC = 30;
+export const OTP_MAX_ATTEMPTS = 5;
+export const OTP_BRAND = "Ruthra Financial Solutions";
 
-/** @returns {string} 6-digit string */
-export function generateDemoOtp() {
-  const min = 10 ** (DEMO_OTP_LENGTH - 1);
-  const max = 10 ** DEMO_OTP_LENGTH - 1;
-  return String(Math.floor(min + Math.random() * (max - min + 1)));
-}
+/** @deprecated Use OTP_* exports */
+export const DEMO_OTP_LENGTH = OTP_LENGTH;
+/** @deprecated Use OTP_* exports */
+export const DEMO_OTP_EXPIRY_SEC = OTP_EXPIRY_SEC;
+/** @deprecated Use OTP_* exports */
+export const DEMO_OTP_RESEND_COOLDOWN_SEC = OTP_RESEND_COOLDOWN_SEC;
+/** @deprecated Use OTP_* exports */
+export const DEMO_OTP_MAX_ATTEMPTS = OTP_MAX_ATTEMPTS;
+/** @deprecated Use OTP_* exports */
+export const DEMO_OTP_BRAND = OTP_BRAND;
 
 export function maskPhoneForDisplay(digits) {
   const d = String(digits || "").replace(/\D/g, "").slice(-10);
@@ -22,12 +23,3 @@ export function maskPhoneForDisplay(digits) {
   return `******${d.slice(-4)}`;
 }
 
-export function buildDemoSmsPreview(otp, brand = DEMO_OTP_BRAND) {
-  return `Dear Customer, your verification OTP is ${otp}. Valid for 5 minutes. - ${brand}`;
-}
-
-export function validateOtpInput(expected, input) {
-  const a = String(expected || "").trim();
-  const b = String(input || "").replace(/\D/g, "").trim();
-  return a.length > 0 && b.length > 0 && a === b;
-}
