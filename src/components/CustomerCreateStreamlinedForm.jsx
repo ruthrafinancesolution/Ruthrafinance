@@ -194,13 +194,6 @@ export default function CustomerCreateStreamlinedForm({
     });
   }, []);
   const phoneDigitsOk = form.mobileNumber.length === 10 && !phoneError;
-  const initialMobileDigits = useMemo(
-    () => String(initialData?.mobileNumber || "").replace(/\D/g, "").slice(0, 10),
-    [initialData?.mobileNumber]
-  );
-  const mobileChangedFromSaved = isEdit && form.mobileNumber !== initialMobileDigits;
-  const otpRequired = strictOnboarding || mobileChangedFromSaved;
-  const submitBlockedByOtp = otpRequired && !primaryPhoneVerified;
   const canOpenOtp = !primaryPhoneVerified && phoneDigitsOk;
   const dayOptions = DAY_CENTER_LABELS;
   const daySelectOptions = useMemo(
@@ -520,11 +513,6 @@ export default function CustomerCreateStreamlinedForm({
       if (nextAltError) validationIssues.add("alternateNumber");
       setHighlightedFields(validationIssues);
       setError("Please fix validation errors.");
-      return;
-    }
-    if (submitBlockedByOtp) {
-      setHighlightedFields(new Set(["mobileNumber"]));
-      setError("Verify the mobile number with OTP before saving.");
       return;
     }
 
@@ -929,7 +917,7 @@ export default function CustomerCreateStreamlinedForm({
             ) : null}
             <button
               type="submit"
-              disabled={loading || submitBlockedByOtp}
+              disabled={loading}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-900 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:brightness-105 disabled:opacity-60"
             >
               <CheckCircle2 className="h-4 w-4" />
