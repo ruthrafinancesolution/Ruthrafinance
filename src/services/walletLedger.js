@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 
 export const WALLET_LEDGER_TYPES = {
@@ -218,6 +218,44 @@ export async function recordInvestorDeposit({
     createdBy: clean(createdBy) || "Admin",
     submittedAt: iso,
     createdAt: serverTimestamp(),
+  });
+
+  return { id, submittedAt: iso };
+}
+
+/**
+ * Corrects an existing investor deposit (same Firestore doc — does not create a second row).
+ */
+export async function updateInvestorDeposit({
+  transactionId,
+  investorName,
+  amount,
+  depositDate,
+  paymentMethod,
+  referenceNumber,
+  notes,
+}) {
+  const id = clean(transactionId);
+  if (!id) throw new Error("Deposit id is required.");
+  const amt = Math.round(Number(amount) || 0);
+  if (amt <= 0) throw new Error("Deposit amount must be greater than zero");
+  const dateStr = clean(depositDate) || new Date().toISOString().slice(0, 10);
+  const iso = `${dateStr}T12:00:00.000Z`;
+  const inv = clean(investorName) || "Investor";
+
+  await updateDoc(doc(db, "walletTransactions", id), {
+    amount: amt,
+    credit: amt,
+    debit: 0,
+    investorName: inv,
+    personName: inv,
+    paymentMethod: clean(paymentMethod) || "—",
+    referenceNumber: clean(referenceNumber),
+    referenceId: clean(referenceNumber),
+    notes: clean(notes),
+    description: `Investor deposit — ${inv}`,
+    submittedAt: iso,
+    updatedAt: serverTimestamp(),
   });
 
   return { id, submittedAt: iso };

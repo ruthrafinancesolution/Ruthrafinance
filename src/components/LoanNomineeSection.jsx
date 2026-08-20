@@ -90,6 +90,10 @@ export default function LoanNomineeSection({
 
   onIdProofClear,
 
+  onPhotoDocPick,
+
+  onPhotoDocClear,
+
   attachmentUrls,
 
 }) {
@@ -113,6 +117,8 @@ export default function LoanNomineeSection({
     nomineePhotoName,
 
     nomineeIdProofName,
+
+    nomineePhotoDocName,
 
   } = nominee;
 
@@ -140,7 +146,7 @@ export default function LoanNomineeSection({
 
   const identityReady = idFormatOk;
 
-  const docsAttached = [nomineeIdProofName, nomineePhotoName].filter(Boolean).length;
+  const docsAttached = [nomineeIdProofName, nomineePhotoName, nomineePhotoDocName].filter(Boolean).length;
 
 
 
@@ -421,12 +427,12 @@ export default function LoanNomineeSection({
           <DocumentCompactAttach
             dense
             label="Nominee photo doc"
-            value={nomineePhotoName}
-            url={attachmentUrls.nomineePhotoName}
-            accept=".jpg,.jpeg,.png,.webp,image/*"
-            capture="user"
-            onPick={onPhotoPick}
-            onClear={onPhotoClear}
+            value={nomineePhotoDocName}
+            url={attachmentUrls.nomineePhotoDocName}
+            accept=".pdf,.jpg,.jpeg,.png,.webp,image/*"
+            capture="environment"
+            onPick={onPhotoDocPick}
+            onClear={onPhotoDocClear}
           />
         </div>
       </div>
@@ -442,7 +448,7 @@ export default function LoanNomineeSection({
 
           <StatusPill ok={idFormatOk} label="ID format" />
 
-          <StatusPill ok={docsAttached >= 1} label={`Docs ${docsAttached}/2`} />
+          <StatusPill ok={docsAttached >= 1} label={`Docs ${docsAttached}/3`} />
 
           <StatusPill ok={Boolean(nomineeAddress?.trim())} label="Address" />
 

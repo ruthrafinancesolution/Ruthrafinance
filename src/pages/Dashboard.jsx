@@ -36,7 +36,7 @@ import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import useAuth from "../hooks/useAuth";
 import useWalletAvailable from "../hooks/useWalletAvailable";
 import { listNotifications, updateUserSettings } from "../services/userAuth";
-import { recordInvestorDeposit, WALLET_LEDGER_TYPES } from "../services/walletLedger";
+import { recordInvestorDeposit, updateInvestorDeposit, WALLET_LEDGER_TYPES } from "../services/walletLedger";
 import { isBookedLoanCustomer, sumInvestorDeposits } from "../utils/walletLedgerBalance";
 
 function formatCurrency(value) {
@@ -328,6 +328,7 @@ export default function Dashboard() {
   const [emiSaving, setEmiSaving] = useState(false);
   const [emiError, setEmiError] = useState("");
   const [investorOpen, setInvestorOpen] = useState(false);
+  const [editingInvestorId, setEditingInvestorId] = useState("");
   const [invName, setInvName] = useState("");
   const [invAmount, setInvAmount] = useState("");
   const [invDate, setInvDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -650,6 +651,49 @@ export default function Dashboard() {
     }
   }
 
+  function resetInvestorForm() {
+    setEditingInvestorId("");
+    setInvName("");
+    setInvAmount("");
+    setInvDate(new Date().toISOString().slice(0, 10));
+    setInvMethod("Bank transfer");
+    setInvRef("");
+    setInvNotes("");
+    setInvError("");
+  }
+
+  function openNewInvestorDeposit() {
+    resetInvestorForm();
+    setInvestorOpen(true);
+  }
+
+  function openEditInvestorDeposit(timelineRow) {
+    const source =
+      walletRows.find((r) => String(r.transactionId || r.id) === String(timelineRow.id)) || null;
+    if (!source) return;
+    const submitted = source.submittedAt ? new Date(source.submittedAt) : null;
+    const dateStr =
+      submitted && !Number.isNaN(submitted.getTime())
+        ? submitted.toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+    const method = String(source.paymentMethod || "").trim() || "Bank transfer";
+    setEditingInvestorId(String(source.transactionId || source.id));
+    setInvName(String(source.investorName || source.personName || "").trim());
+    setInvAmount(String(Math.round(Number(source.credit || source.amount || 0)) || ""));
+    setInvDate(dateStr);
+    setInvMethod(method);
+    setInvRef(String(source.referenceNumber || source.referenceId || "").trim());
+    setInvNotes(String(source.notes || "").trim());
+    setInvError("");
+    setInvestorOpen(true);
+  }
+
+  function closeInvestorDeposit() {
+    if (invSaving) return;
+    setInvestorOpen(false);
+    resetInvestorForm();
+  }
+
   async function handleSaveInvestorDeposit() {
     if (!user?.uid) return;
     setInvSaving(true);
@@ -658,22 +702,29 @@ export default function Dashboard() {
       const amt = Number(String(invAmount).replace(/,/g, "").trim());
       if (!invName.trim()) throw new Error("Investor name is required.");
       if (!Number.isFinite(amt) || amt <= 0) throw new Error("Enter a valid deposit amount.");
-      await recordInvestorDeposit({
-        investorName: invName.trim(),
-        amount: amt,
-        depositDate: invDate,
-        paymentMethod: invMethod,
-        referenceNumber: invRef.trim(),
-        notes: invNotes.trim(),
-        createdBy: profile?.displayName || profile?.email || user.email || "Admin",
-      });
+      if (editingInvestorId) {
+        await updateInvestorDeposit({
+          transactionId: editingInvestorId,
+          investorName: invName.trim(),
+          amount: amt,
+          depositDate: invDate,
+          paymentMethod: invMethod,
+          referenceNumber: invRef.trim(),
+          notes: invNotes.trim(),
+        });
+      } else {
+        await recordInvestorDeposit({
+          investorName: invName.trim(),
+          amount: amt,
+          depositDate: invDate,
+          paymentMethod: invMethod,
+          referenceNumber: invRef.trim(),
+          notes: invNotes.trim(),
+          createdBy: profile?.displayName || profile?.email || user.email || "Admin",
+        });
+      }
       setInvestorOpen(false);
-      setInvName("");
-      setInvAmount("");
-      setInvDate(new Date().toISOString().slice(0, 10));
-      setInvMethod("Bank transfer");
-      setInvRef("");
-      setInvNotes("");
+      resetInvestorForm();
     } catch (err) {
       setInvError(err.message || "Could not save deposit.");
     } finally {
@@ -865,10 +916,7 @@ export default function Dashboard() {
             <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               <QuickActionButton
                 variant="primary"
-                onClick={() => {
-                  setInvError("");
-                  setInvestorOpen(true);
-                }}
+                onClick={openNewInvestorDeposit}
                 icon={Plus}
                 label="Investor deposit"
               />
@@ -1251,18 +1299,20 @@ export default function Dashboard() {
                   <th className="px-3 py-2.5 text-right">Debit (−)</th>
                   <th className="px-3 py-2.5 text-right">Balance after</th>
                   <th className="px-3 py-2.5">Remarks</th>
+                  <th className="px-3 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredWalletTimeline.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
+                    <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">
                       No transactions match your filters. Record an investor deposit or approve a collection to see history.
                     </td>
                   </tr>
                 ) : (
                   filteredWalletTimeline.map((row) => {
                     const isEmi = row.ledgerType === WALLET_LEDGER_TYPES.EMI_COLLECTION;
+                    const isInvestor = row.ledgerType === WALLET_LEDGER_TYPES.INVESTOR_DEPOSIT;
                     const isCredit = row.credit > 0;
                     const rowTone = isEmi
                       ? "bg-sky-50/70 text-sky-950"
@@ -1284,6 +1334,21 @@ export default function Dashboard() {
                         <td className="px-3 py-2.5 text-right text-xs font-bold text-slate-900">{formatCurrency(Math.round(row.balanceAfter))}</td>
                         <td className="max-w-[220px] px-3 py-2.5 text-xs text-slate-700">
                           <span className="line-clamp-2">{row.remarks || "—"}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          {isInvestor ? (
+                            <button
+                              type="button"
+                              onClick={() => openEditInvestorDeposit(row)}
+                              className="inline-flex items-center justify-center rounded-lg border border-slate-200/80 bg-white p-1.5 text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-800"
+                              title="Edit investor deposit"
+                              aria-label="Edit investor deposit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">—</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1521,19 +1586,25 @@ export default function Dashboard() {
               aria-label="Close"
               disabled={invSaving}
               className="absolute inset-0 cursor-default"
-              onClick={() => !invSaving && setInvestorOpen(false)}
+              onClick={closeInvestorDeposit}
             />
             <div className="relative z-[101] w-full max-w-lg overflow-hidden rounded-3xl border border-white/70 bg-gradient-to-b from-white via-white to-slate-50/95 p-5 shadow-2xl ring-1 ring-slate-200/50 backdrop-blur-xl">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <DashSectionLabel>Investor deposit</DashSectionLabel>
-                  <h3 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Record capital</h3>
-                  <p className="mt-1 text-[11px] text-slate-500">Updates wallet and ledger.</p>
+                  <h3 className="mt-1 text-lg font-bold tracking-tight text-slate-950">
+                    {editingInvestorId ? "Edit deposit" : "Record capital"}
+                  </h3>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {editingInvestorId
+                      ? "Correct amount or details — wallet updates from this ledger row."
+                      : "Updates wallet and ledger."}
+                  </p>
                 </div>
                 <button
                   type="button"
                   disabled={invSaving}
-                  onClick={() => setInvestorOpen(false)}
+                  onClick={closeInvestorDeposit}
                   className="rounded-xl border border-slate-200/80 bg-white/80 p-2 text-slate-600 shadow-sm transition hover:bg-slate-50"
                   aria-label="Close dialog"
                 >
@@ -1576,11 +1647,21 @@ export default function Dashboard() {
                     onChange={(e) => setInvMethod(e.target.value)}
                     className="app-input mt-1 h-10 w-full text-sm"
                   >
-                    <option>Bank transfer</option>
-                    <option>UPI</option>
-                    <option>Cash</option>
-                    <option>Cheque</option>
-                    <option>Other</option>
+                    {[
+                      "Bank transfer",
+                      "UPI",
+                      "Cash",
+                      "Cheque",
+                      "Other",
+                      ...(invMethod &&
+                      !["Bank transfer", "UPI", "Cash", "Cheque", "Other"].includes(invMethod)
+                        ? [invMethod]
+                        : []),
+                    ].map((method) => (
+                      <option key={method} value={method}>
+                        {method}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="block text-xs font-medium text-slate-700 sm:col-span-2">
@@ -1607,7 +1688,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   disabled={invSaving}
-                  onClick={() => setInvestorOpen(false)}
+                  onClick={closeInvestorDeposit}
                   className="app-button-secondary rounded-xl px-4 py-2 text-sm font-medium"
                 >
                   Cancel
@@ -1618,7 +1699,7 @@ export default function Dashboard() {
                   onClick={handleSaveInvestorDeposit}
                   className="app-button-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
                 >
-                  {invSaving ? "Saving…" : "Save deposit"}
+                  {invSaving ? "Saving…" : editingInvestorId ? "Save changes" : "Save deposit"}
                 </button>
               </div>
             </div>

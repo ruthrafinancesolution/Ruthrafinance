@@ -625,6 +625,8 @@ async function buildLoanApplicationRecord({
   coApplicantIdProofName,
   coApplicantIdProofDataUrl = "",
   coApplicantPhotoName,
+  coApplicantPhotoDocName = "",
+  coApplicantPhotoDocDataUrl = "",
   customerPhotoName = "",
   customerPhotoDataUrl = "",
   coApplicantPhotoDataUrl = "",
@@ -703,6 +705,8 @@ async function buildLoanApplicationRecord({
     coApplicantIdProofName: normalizeText(coApplicantIdProofName),
     coApplicantIdProofDataUrl: normalizeText(coApplicantIdProofDataUrl),
     coApplicantPhotoName: normalizeText(coApplicantPhotoName),
+    coApplicantPhotoDocName: normalizeText(coApplicantPhotoDocName),
+    coApplicantPhotoDocDataUrl: normalizeText(coApplicantPhotoDocDataUrl),
     customerPhotoName: normalizeText(customerPhotoName),
     customerPhotoDataUrl: normalizeText(customerPhotoDataUrl),
     coApplicantPhotoDataUrl: normalizeText(coApplicantPhotoDataUrl),
@@ -1184,7 +1188,9 @@ export async function loginWithRole({ email, password }) {
     const message = profileError?.message || "";
     if (message.includes("permission") || message.includes("Permission")) {
       throw new Error(
-        "Could not load your employee profile. Ask an admin to open the Employee page, edit your account, set your password again, and save."
+        loggedInViaEmail
+          ? "Could not load your admin profile. Sign in with your configured admin email (e.g. ruthra@loanweb.com), then deploy Firestore rules: firebase deploy --only firestore:rules"
+          : "Could not load your employee profile. Ask an admin to open the Employee page, edit your account, set your password again, and save."
       );
     }
     throw profileError;
@@ -2039,6 +2045,8 @@ export async function upsertLoanApplication({
   coApplicantIdentityNumber = "",
   coApplicantPhotoName = "",
   coApplicantPhotoDataUrl = "",
+  coApplicantPhotoDocName = "",
+  coApplicantPhotoDocDataUrl = "",
   customerPhotoName = "",
   customerPhotoDataUrl = "",
 }) {
@@ -2089,6 +2097,8 @@ export async function upsertLoanApplication({
     coApplicantIdProofName,
     coApplicantIdProofDataUrl,
     coApplicantPhotoName,
+    coApplicantPhotoDocName,
+    coApplicantPhotoDocDataUrl,
     customerPhotoName,
     customerPhotoDataUrl,
     coApplicantPhotoDataUrl,

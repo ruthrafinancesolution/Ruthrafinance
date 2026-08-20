@@ -298,6 +298,8 @@ export default function LoanApply() {
   const [nomineePhotoPreview, setNomineePhotoPreview] = useState("");
   const [nomineeIdProofName, setNomineeIdProofName] = useState("");
   const [nomineeIdProofDataUrl, setNomineeIdProofDataUrl] = useState("");
+  const [nomineePhotoDocName, setNomineePhotoDocName] = useState("");
+  const [nomineePhotoDocDataUrl, setNomineePhotoDocDataUrl] = useState("");
   const [nomineeAttachmentUrls, setNomineeAttachmentUrls] = useState({});
   const [nomineeNameError, setNomineeNameError] = useState("");
   const [nomineeContactRequiredError, setNomineeContactRequiredError] = useState("");
@@ -550,6 +552,8 @@ export default function LoanApply() {
     setNomineePhotoPreview(record.coApplicantPhotoDataUrl || "");
     setNomineeIdProofName(record.coApplicantIdProofName || "");
     setNomineeIdProofDataUrl(record.coApplicantIdProofDataUrl || "");
+    setNomineePhotoDocName(record.coApplicantPhotoDocName || record.nomineePhotoDocName || "");
+    setNomineePhotoDocDataUrl(record.coApplicantPhotoDocDataUrl || record.nomineePhotoDocDataUrl || "");
     setNomineeNameError("");
     setNomineeContactRequiredError("");
     setNomineePhoneError("");
@@ -620,15 +624,18 @@ export default function LoanApply() {
     });
     if (field === "nomineeIdProofName") setNomineeIdProofName(file.name || "");
     if (field === "nomineePhotoName") setNomineePhotoName(file.name || "");
+    if (field === "nomineePhotoDocName") setNomineePhotoDocName(file.name || "");
 
     try {
       const dataUrl = await fileToStorableDataUrl(file);
       if (previewSetter) previewSetter(dataUrl);
       if (field === "nomineePhotoName" && dataField) setNomineePhotoDataUrl(dataUrl);
       if (field === "nomineeIdProofName") setNomineeIdProofDataUrl(dataUrl);
+      if (field === "nomineePhotoDocName") setNomineePhotoDocDataUrl(dataUrl);
     } catch {
       if (field === "nomineeIdProofName") setNomineeIdProofName("");
       if (field === "nomineePhotoName") setNomineePhotoName("");
+      if (field === "nomineePhotoDocName") setNomineePhotoDocName("");
     }
   };
 
@@ -641,6 +648,10 @@ export default function LoanApply() {
       setNomineePhotoName("");
       if (dataField) setNomineePhotoDataUrl("");
       if (previewSetter) previewSetter("");
+    }
+    if (field === "nomineePhotoDocName") {
+      setNomineePhotoDocName("");
+      setNomineePhotoDocDataUrl("");
     }
     setNomineeAttachmentUrls((current) => {
       if (current[field]) URL.revokeObjectURL(current[field]);
@@ -871,6 +882,8 @@ export default function LoanApply() {
         coApplicantIdProofDataUrl: nomineeIdProofDataUrl || customer.coApplicantIdProofDataUrl || "",
         coApplicantPhotoName: nomineePhotoName,
         coApplicantPhotoDataUrl: nomineePhotoDataUrl || "",
+        coApplicantPhotoDocName: nomineePhotoDocName,
+        coApplicantPhotoDocDataUrl: nomineePhotoDocDataUrl || customer.coApplicantPhotoDocDataUrl || "",
         customerPhotoName: customer.customerPhotoName || "",
         customerPhotoDataUrl: customer.customerPhotoDataUrl || "",
         isArchived: customer.isArchived,
@@ -1041,6 +1054,7 @@ export default function LoanApply() {
                 nomineeIdentityNumber,
                 nomineePhotoName,
                 nomineeIdProofName,
+                nomineePhotoDocName,
               }}
               onFieldChange={onNomineeFieldChange}
               onNomineePhoneChange={onNomineePhoneChange}
@@ -1058,6 +1072,8 @@ export default function LoanApply() {
               onPhotoClear={() => clearNomineeFile("nomineePhotoName", setNomineePhotoPreview, "nomineePhotoDataUrl")}
               onIdProofPick={pickNomineeFile("nomineeIdProofName")}
               onIdProofClear={() => clearNomineeFile("nomineeIdProofName")}
+              onPhotoDocPick={pickNomineeFile("nomineePhotoDocName")}
+              onPhotoDocClear={() => clearNomineeFile("nomineePhotoDocName")}
               attachmentUrls={nomineeAttachmentUrls}
             />
 

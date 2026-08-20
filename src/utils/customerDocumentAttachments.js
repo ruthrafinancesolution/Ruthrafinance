@@ -4,6 +4,7 @@ export const CUSTOMER_DOCUMENT_DATA_URL_FIELDS = {
   loanAgreementName: "loanAgreementDataUrl",
   customerPhotoName: "customerPhotoDataUrl",
   coApplicantPhotoName: "coApplicantPhotoDataUrl",
+  coApplicantPhotoDocName: "coApplicantPhotoDocDataUrl",
   coApplicantIdProofName: "coApplicantIdProofDataUrl",
 };
 
