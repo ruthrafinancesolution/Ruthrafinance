@@ -1,6 +1,8 @@
 # Firebase Hosting only. Never deploys Firestore, Auth, or Storage rules.
 # Push and pull request do not deploy Hosting.
-# Manual Hosting deploy: GitHub Actions "Run workflow", or Firebase CLI --only hosting.
+# Manual Hosting deploy: GitHub Actions "Run workflow", or:
+# npx firebase deploy --only hosting --project ruthrafinancesolutions
+# The local CLI command does not use a GitHub secret.
 name: Firebase Hosting
 
 on:
@@ -14,10 +16,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  checks: write
-  deployments: write
-  statuses: write
 
 concurrency:
   group: firebase-hosting-${{ github.event.pull_request.number || github.ref }}
@@ -102,7 +100,6 @@ jobs:
         id: deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_SANDRALOANAPP }}
           projectId: ruthrafinancesolutions
           channelId: live
