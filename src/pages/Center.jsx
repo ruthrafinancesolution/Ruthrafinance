@@ -22,6 +22,11 @@ import {
 import { listAllCustomerAmountEntries, listCustomers, updateCustomerDay } from "../services/userAuth";
 import { hasAppliedForLoan } from "../utils/customerSheets";
 import { persistableCenterFieldsFromSelectedDay } from "../utils/centerDisplay";
+import {
+  customerBelongsToDay,
+  customerBelongsToSubCenter,
+  mergeDiscoveredSubCenters,
+} from "../utils/centerMembership";
 
 const defaultCenters = DEFAULT_DAY_CENTERS;
 const additionalColors = ADDITIONAL_CENTER_COLORS;
@@ -30,8 +35,7 @@ function formatLoanAmount(value) {
 }
 
 function countCustomersForDayGroup(group, customers) {
-  const labels = new Set([group.label, ...group.subCenters.map((subCenter) => subCenter.label)]);
-  return customers.filter((customer) => labels.has(customer.selectedDay)).length;
+  return customers.filter((customer) => customerBelongsToDay(customer, group.label)).length;
 }
 
 function CenterAvatar({ name }) {
@@ -77,6 +81,8 @@ export default function Center() {
   const [allCustomers, setAllCustomers] = useState([]);
   const [amountEntries, setAmountEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [customersLoaded, setCustomersLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectionByCenter, setSelectionByCenter] = useState({});
   const [actionError, setActionError] = useState("");
@@ -95,11 +101,16 @@ export default function Center() {
     let active = true;
     const load = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         const [customers, entries] = await Promise.all([listCustomers(), listAllCustomerAmountEntries()]);
         if (!active) return;
-        setAllCustomers(customers);
-        setAmountEntries(entries);
+        setAllCustomers(Array.isArray(customers) ? customers : []);
+        setAmountEntries(Array.isArray(entries) ? entries : []);
+        setCustomersLoaded(true);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(err?.message || "Unable to load center customers");
       } finally {
         if (active) setLoading(false);
       }
@@ -110,9 +121,17 @@ export default function Center() {
     };
   }, []);
 
+  const visibleSubCenters = useMemo(
+    () => mergeDiscoveredSubCenters(centers, customersLoaded ? allCustomers : []),
+    [centers, allCustomers, customersLoaded]
+  );
   const dayGroups = useMemo(
-    () => defaultCenters.map((dayCenter) => ({ ...dayCenter, subCenters: centers.filter((c) => c.parent === dayCenter.label) })),
-    [centers]
+    () =>
+      defaultCenters.map((dayCenter) => ({
+        ...dayCenter,
+        subCenters: visibleSubCenters.filter((c) => c.parent === dayCenter.label),
+      })),
+    [visibleSubCenters]
   );
   const activeDayGroup = useMemo(
     () => dayGroups.find((group) => group.label === activeDay) || dayGroups[0],
@@ -125,7 +144,7 @@ export default function Center() {
     [activeDayGroup]
   );
   const assignedToCurrentCenter = useMemo(
-    () => allCustomers.filter((c) => c.selectedDay === currentCenterLabel),
+    () => allCustomers.filter((c) => customerBelongsToSubCenter(c, currentCenterLabel)),
     [allCustomers, currentCenterLabel]
   );
 
@@ -159,7 +178,7 @@ export default function Center() {
     centersForActiveDay.forEach((center) => {
       map.set(
         center.label,
-        allCustomers.filter((customer) => customer.selectedDay === center.label)
+        allCustomers.filter((customer) => customerBelongsToSubCenter(customer, center.label))
       );
     });
     return map;
@@ -168,7 +187,7 @@ export default function Center() {
   const customersOnParentDayCentre = useMemo(() => {
     const parent = activeDayGroup?.label;
     if (!parent) return [];
-    return allCustomers.filter((c) => c.selectedDay === parent);
+    return allCustomers.filter((c) => customerBelongsToDay(c, parent));
   }, [allCustomers, activeDayGroup]);
 
   const filteredDayCustomers = useMemo(() => {
@@ -192,11 +211,6 @@ export default function Center() {
     if (showAllSubCenters) return filteredDayCustomers;
     return assignedToCurrentCenter;
   }, [showAllSubCenters, filteredDayCustomers, assignedToCurrentCenter]);
-
-  const activeDayCustomerCount = useMemo(() => {
-    if (!activeDayGroup) return 0;
-    return countCustomersForDayGroup(activeDayGroup, allCustomers);
-  }, [activeDayGroup, allCustomers]);
 
   function getCustomerDisplayFields(customer) {
     const customerSheet = sheetRowById.get(customer.customerId);
@@ -387,7 +401,7 @@ export default function Center() {
             <div className="space-y-1">
               {dayGroups.map((group) => {
                 const dayActive = activeDay === group.label;
-                const dayCustomerCount = countCustomersForDayGroup(group, allCustomers);
+                const dayCustomerCount = customersLoaded ? countCustomersForDayGroup(group, allCustomers) : null;
 
                 return (
                   <div
@@ -415,7 +429,7 @@ export default function Center() {
                             dayActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
                           }`}
                         >
-                          {dayCustomerCount}
+                          {dayCustomerCount == null ? "…" : dayCustomerCount}
                         </span>
                       </button>
                       <button
@@ -432,7 +446,9 @@ export default function Center() {
                       <div className="space-y-0.5 border-t border-slate-200/80 px-1.5 py-1">
                         {group.subCenters.length > 0 ? (
                           group.subCenters.map((subCenter) => {
-                            const subCount = allCustomers.filter((customer) => customer.selectedDay === subCenter.label).length;
+                            const subCount = customersLoaded
+                              ? allCustomers.filter((customer) => customerBelongsToSubCenter(customer, subCenter.label)).length
+                              : null;
                             const subActive = activeCenter === subCenter.label;
 
                             return (
@@ -455,7 +471,7 @@ export default function Center() {
                                     subActive ? "bg-white/20 text-white" : "bg-blue-100 text-blue-700"
                                   }`}
                                 >
-                                  {subCount}
+                                  {subCount == null ? "…" : subCount}
                                 </span>
                               </button>
                             );
@@ -475,7 +491,9 @@ export default function Center() {
                 <UsersRound className="h-3.5 w-3.5 text-slate-500" aria-hidden />
                 Total customers
               </div>
-              <span className="text-xs font-bold tabular-nums text-slate-900">{activeDayCustomerCount}</span>
+              <span className="text-xs font-bold tabular-nums text-slate-900">
+                {customersLoaded ? allCustomers.length : "…"}
+              </span>
             </div>
           </section>
 
@@ -571,6 +589,8 @@ export default function Center() {
 
             {loading ? (
               <p className="py-10 text-center text-sm text-slate-500">Loading customers…</p>
+            ) : loadError ? (
+              <p className="app-alert-error">{loadError}</p>
             ) : (
               renderCenterCustomerTable()
             )}

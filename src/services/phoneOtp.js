@@ -1,6 +1,7 @@
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import app from "../firebase/config";
-import { isUsingFirebaseEmulators } from "../firebase/environment";
+import { assertLocalEmulatorsReady } from "../firebase/emulatorHealth";
+import { getEmulatorEndpoints, isUsingFirebaseEmulators } from "../firebase/environment";
 
 export {
   OTP_EXPIRY_SEC,
@@ -13,17 +14,24 @@ const functions = getFunctions(app, "asia-south1");
 let emulatorConnected = false;
 
 function connectFunctionsEmulatorIfNeeded() {
-  if (emulatorConnected || !isUsingFirebaseEmulators() || typeof window === "undefined") {
+  if (!isUsingFirebaseEmulators() || typeof window === "undefined") {
     return;
   }
-  const host = import.meta.env.VITE_FIREBASE_EMULATOR_HOST || "127.0.0.1";
-  connectFunctionsEmulator(functions, host, 5001);
+  assertLocalEmulatorsReady();
+  if (emulatorConnected) {
+    return;
+  }
+  const endpoints = getEmulatorEndpoints();
+  connectFunctionsEmulator(functions, endpoints.host, endpoints.functionsPort);
   emulatorConnected = true;
 }
 
 function mapCallableError(error) {
   const code = String(error?.code || "");
   const message = String(error?.message || "Unable to process OTP request.");
+  if (isUsingFirebaseEmulators() && /failed to fetch|network|unavailable|emulator/i.test(`${code} ${message}`)) {
+    return "Phone OTP could not reach the local Functions emulator. Production was not contacted. Start it with npm run emulators.";
+  }
   if (code.includes("resource-exhausted")) return message;
   if (code.includes("deadline-exceeded")) return message;
   if (code.includes("invalid-argument")) return message;

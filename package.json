@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --configLoader native",
     "dev:emulator": "vite --mode emulator --configLoader native",
-    "emulators": "npx firebase emulators:start --only auth,firestore,functions",
+    "emulators": "node scripts/start-local-emulators.mjs",
+    "reset:local-data": "node scripts/reset-local-emulator-data.mjs",
     "build": "vite build --configLoader native",
     "lint": "eslint .",
     "preview": "vite preview --configLoader native",

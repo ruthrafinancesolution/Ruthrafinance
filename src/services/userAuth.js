@@ -19,7 +19,8 @@ import {
   ACCOUNTS_SALARY_COLLECTION,
   ACCOUNTS_TRANSACTIONS_COLLECTION,
 } from "./accounts.js";
-import { auth, db, firebaseConfig } from "../firebase/config";
+import { auth, db, identityToolkitUrl } from "../firebase/config";
+import { assertLocalFirebaseEnvironment } from "../firebase/environment";
 import { calculateLoanValues } from "../utils/loanCalculation";
 import { getLedgerWalletBalance, ledgerHasLoanDisbursementForCustomer } from "../utils/walletLedgerBalance";
 import { notifyLoanCentersChanged } from "../constants/loanCenterStorage";
@@ -30,7 +31,6 @@ import {
 } from "./walletLedger.js";
 import {
   hasDuplicateIdentity,
-  hasDuplicatePhone,
   normalizeCustomerId,
   normalizePhoneNumber,
   normalizeText,
@@ -211,7 +211,7 @@ async function setEmployeeLoginMapping(username, loginEmail, uid) {
 
 async function signInWithPasswordRest(email, password) {
   const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseConfig.apiKey}`,
+    identityToolkitUrl("accounts:signInWithPassword"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -231,7 +231,7 @@ async function signInWithPasswordRest(email, password) {
 
 async function updateAuthPasswordWithIdToken(idToken, password) {
   const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${firebaseConfig.apiKey}`,
+    identityToolkitUrl("accounts:update"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -251,7 +251,7 @@ async function updateAuthPasswordWithIdToken(idToken, password) {
 
 async function updateAuthEmailWithIdToken(idToken, email) {
   const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${firebaseConfig.apiKey}`,
+    identityToolkitUrl("accounts:update"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -474,37 +474,19 @@ async function validateCustomerUniqueness({ customerId, mobileNumber, alternateN
     }
   }
 
-  if (hasDuplicatePhone(customers, mobileNumber, customerId)) {
-    throw new Error("This mobile number already exists");
-  }
-
-  if (alternateNumber && hasDuplicatePhone(customers, alternateNumber, customerId)) {
-    throw new Error("This alternate number already exists");
-  }
-
   if (hasDuplicateIdentity(customers, identityNumber, customerId)) {
     throw new Error("This ID number already exists");
   }
 }
 
-/** Phone duplicate check before OTP — identity not required yet. */
+/** Format check before OTP. The same mobile number may belong to more than one customer. */
 export async function assertNewCustomerMobileAvailable(mobileNumber, alternateNumber = "") {
-  const snapshot = await getDocs(query(collection(db, "customers")));
-  const customers = snapshot.docs.map((customerDoc) => customerDoc.data());
-
   const phoneError = validatePhoneNumber(mobileNumber, "Mobile number");
   if (phoneError) throw new Error(phoneError);
 
   if (alternateNumber) {
     const altErr = validatePhoneNumber(alternateNumber, "Alternate number");
     if (altErr) throw new Error(altErr);
-  }
-
-  if (hasDuplicatePhone(customers, mobileNumber, undefined)) {
-    throw new Error("This mobile number already exists");
-  }
-  if (alternateNumber && hasDuplicatePhone(customers, alternateNumber, undefined)) {
-    throw new Error("This alternate number already exists");
   }
 }
 
@@ -738,7 +720,7 @@ function isAuthEmailExistsError(error) {
 
 async function createAuthAccount(email, password) {
   const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`,
+    identityToolkitUrl("accounts:signUp"),
     {
       method: "POST",
       headers: {
@@ -2115,14 +2097,24 @@ export async function upsertLoanApplication({
   const [customerSnap, applicationSnap] = await Promise.all([getDoc(customerRef), getDoc(applicationRef)]);
 
   const newPrincipal = Math.round(Number(record.loanAmount || 0));
-  const priorPrincipal = customerSnap.exists() ? Math.round(Number(customerSnap.data().loanAmount || 0)) : 0;
+  const prior = customerSnap.exists() ? customerSnap.data() : null;
+  const priorPrincipal = prior ? Math.round(Number(prior.loanAmount || 0)) : 0;
+  const priorApplicationId = prior ? String(prior.applicationId || "") : "";
+  const priorPayable = prior ? Number(prior.totalPayable || 0) : 0;
+  if (
+    priorApplicationId &&
+    priorPrincipal > 0 &&
+    priorPayable > 0 &&
+    priorApplicationId !== record.applicationId
+  ) {
+    throw new Error("This customer already has a loan.");
+  }
   const principalDelta = newPrincipal - priorPrincipal;
 
-  if (customerSnap.exists()) {
-    const prior = customerSnap.data();
+  if (prior) {
+    preserveCustomerDocumentDataUrls(record, prior);
     if (prior.approvalStatus) record.approvalStatus = prior.approvalStatus;
     if (prior.loanApprovedAt != null) record.loanApprovedAt = prior.loanApprovedAt;
-    preserveCustomerDocumentDataUrls(record, prior);
   } else if (applicationSnap.exists()) {
     const priorApp = applicationSnap.data();
     if (priorApp.approvalStatus) record.approvalStatus = priorApp.approvalStatus;
@@ -2924,9 +2916,14 @@ export async function closeCustomerLoan(customerId) {
 
   const applicationQuery = query(collection(db, "loanApplications"), where("customerId", "==", customerId));
   const applicationSnap = await getDocs(applicationQuery);
+  const currentLoanId = normalizeText(customerSnap.data().applicationId);
+  const loansToClose = applicationSnap.docs.filter((applicationDoc) => {
+    if (!currentLoanId) return true;
+    return (applicationDoc.data().applicationId || applicationDoc.id) === currentLoanId;
+  });
 
   await Promise.all(
-    applicationSnap.docs.map((applicationDoc) =>
+    (loansToClose.length ? loansToClose : applicationSnap.docs).map((applicationDoc) =>
       updateDoc(doc(db, "loanApplications", applicationDoc.id), {
         loanStatus: "closed",
         closedAt,
@@ -3141,9 +3138,8 @@ export async function createLoanRequest({
 
   const activeLoanAmount = Number(customer.loanAmount || 0);
   const activeTotalPayable = Number(customer.totalPayable || 0);
-  const activeLoanStatus = String(customer.loanStatus || "").toLowerCase();
-  if (activeLoanAmount > 0 && activeTotalPayable > 0 && activeLoanStatus !== "closed") {
-    throw new Error("This customer already has an active loan.");
+  if (activeLoanAmount > 0 && activeTotalPayable > 0 && String(customer.applicationId || customer.loanId || "").trim()) {
+    throw new Error("This customer already has a loan.");
   }
 
   const pendingQuery = query(collection(db, "loanRequests"), where("customerId", "==", normalizedCustomerId));
@@ -3448,6 +3444,7 @@ async function seedDemoCustomerIfMissing() {
  * and adds a pending collection entry so admin can exercise approval and employees can see the customer on Monday.
  */
 export async function seedDemoLoanFlowData() {
+  assertLocalFirebaseEnvironment("Creating sample loan data");
   const stamp = Date.now();
   const mobileNumber = `9${String(stamp).slice(-9)}`;
   const identityNumber = String(stamp).padStart(12, "0").slice(-12);
@@ -3492,6 +3489,7 @@ export async function seedDemoLoanFlowData() {
  * Friday is archived after creation, plus one KYC-only customer (no loan yet).
  */
 export async function seedAllTestData() {
+  assertLocalFirebaseEnvironment("Creating the local sample dataset");
   const base = Date.now();
   const disbursementDate = new Date().toISOString().slice(0, 10);
   const collectionDate = disbursementDate;
@@ -3689,6 +3687,7 @@ export function ensureDummySubcentersInLocalStorage() {
  * per sub-centre (skipped if a customer already has that `selectedDay`). Reloads centre-dependent UI via event.
  */
 export async function seedDummySubcenterCustomers() {
+  assertLocalFirebaseEnvironment("Creating sample sub-centre customers");
   if (typeof window === "undefined") {
     throw new Error("This seed runs in the browser only.");
   }
@@ -3764,6 +3763,21 @@ export async function seedDummySubcenterCustomers() {
   };
 }
 
+async function resolvePaymentLoanId(customerId, applicationId = "") {
+  const given = normalizeText(applicationId);
+  if (given) return given;
+  const snap = await getDoc(doc(db, "customers", customerId));
+  return snap.exists() ? normalizeText(snap.data().applicationId) : "";
+}
+
+function loanDocsMatchingPayment(applicationDocs, applicationId) {
+  if (!applicationId) return applicationDocs;
+  const matched = applicationDocs.filter(
+    (applicationDoc) => (applicationDoc.data().applicationId || applicationDoc.id) === applicationId
+  );
+  return matched.length ? matched : applicationDocs;
+}
+
 export async function createCustomerAmountEntry({
   customerId,
   customerName,
@@ -3774,16 +3788,19 @@ export async function createCustomerAmountEntry({
   paymentMethod,
   collectionStatus,
   collectionDate,
+  applicationId = "",
 }) {
   const entryId = `AMT-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random()
     .toString(36)
     .slice(2, 8)
     .toUpperCase()}`;
   const now = new Date();
+  const loanId = await resolvePaymentLoanId(customerId, applicationId);
 
   await setDoc(doc(db, "customerAmounts", entryId), {
     entryId,
     customerId,
+    applicationId: loanId,
     customerName,
     amount,
     note,
@@ -3839,6 +3856,7 @@ export async function recordApprovedCollectionEntry({
   collectionStatus = "Collected",
   collectionDate,
   entrySource = "admin_collection_report",
+  applicationId = "",
 }) {
   const principal = Math.round(Number(amount || 0));
   if (principal <= 0) {
@@ -3860,10 +3878,12 @@ export async function recordApprovedCollectionEntry({
   const actorName = normalizeText(collectorName) || "Admin";
   const displayName = normalizeText(customerName) || "Customer";
   const status = normalizeText(collectionStatus) || "Collected";
+  const loanId = await resolvePaymentLoanId(normalizedCustomerId, applicationId);
 
   await setDoc(doc(db, "customerAmounts", entryId), {
     entryId,
     customerId: normalizedCustomerId,
+    applicationId: loanId,
     customerName: displayName,
     amount: principal,
     note: normalizeText(note),
@@ -3892,7 +3912,7 @@ export async function recordApprovedCollectionEntry({
   });
 
   await Promise.all(
-    applicationSnap.docs.map((applicationDoc) =>
+    loanDocsMatchingPayment(applicationSnap.docs, loanId).map((applicationDoc) =>
       updateDoc(doc(db, "loanApplications", applicationDoc.id), {
         approvalStatus: "approved",
         amountStatus: "approved",
@@ -3993,6 +4013,10 @@ export async function approveCustomerAmountEntry(entryId) {
   const customerRef = doc(db, "customers", entry.customerId);
   const applicationQuery = query(collection(db, "loanApplications"), where("customerId", "==", entry.customerId));
   const applicationSnap = await getDocs(applicationQuery);
+  const loanId = entry.applicationId || (await resolvePaymentLoanId(entry.customerId));
+  if (!entry.applicationId && loanId) {
+    await updateDoc(entryRef, { applicationId: loanId });
+  }
 
   await updateDoc(customerRef, {
     approvalStatus: "approved",
@@ -4003,7 +4027,7 @@ export async function approveCustomerAmountEntry(entryId) {
   });
 
   await Promise.all(
-    applicationSnap.docs.map((applicationDoc) =>
+    loanDocsMatchingPayment(applicationSnap.docs, loanId).map((applicationDoc) =>
       updateDoc(doc(db, "loanApplications", applicationDoc.id), {
         approvalStatus: "approved",
         amountStatus: "approved",
@@ -4410,6 +4434,7 @@ async function resetAllAdminWalletOpeningBalances() {
  * Resets all admin opening wallet balances to 0. Does not delete collection schemas.
  */
 export async function resetFinanceAndAccountsTestData() {
+  assertLocalFirebaseEnvironment("Resetting local test data");
   const uid = auth.currentUser?.uid;
   if (!uid) {
     throw new Error("You must be signed in to reset test data.");

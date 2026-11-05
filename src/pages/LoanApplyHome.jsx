@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarDays, Search, UsersRound } from "lucide-react";
 import AdminLayout from "../components/dashboard/AdminLayout";
 import CustomerApprovalsPanel from "../components/loan/CustomerApprovalsPanel";
+import LoanCompletedPanel from "../components/loan/LoanCompletedPanel";
 import LoanRequestsPanel from "../components/loan/LoanRequestsPanel";
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import { DEFAULT_DAY_CENTERS, loadLoanCenters } from "../constants/dayCenters";
 import { mergeCustomersWithLoanApplications } from "../utils/collectionCustomerUtils";
 import { enrichCustomerForCollection, hasAppliedForLoan, hasValidLoanForCollection } from "../utils/customerSheets";
 import { isActiveCustomerRecord, isRecordDeleted } from "../utils/recordFlags";
+import { customerHasIssuedLoan, viewLoanPath } from "../utils/customerLoan";
 
 const defaultCenters = DEFAULT_DAY_CENTERS;
 const RECENT_LOAN_LOOKBACK_DAYS = 2;
@@ -230,7 +232,13 @@ export default function LoanApplyHome() {
   const { customers, entries, loanRequests, loanApplications, loading } = useLoanDataSync();
   const tabParam = searchParams.get("tab");
   const mainTab =
-    tabParam === "requests" ? "requests" : tabParam === "customers" ? "customers" : "apply";
+    tabParam === "requests"
+      ? "requests"
+      : tabParam === "customers"
+        ? "customers"
+        : tabParam === "completed"
+          ? "completed"
+          : "apply";
   const pendingRequestCount = useMemo(
     () => loanRequests.filter((row) => String(row.status || "").toLowerCase() === "pending").length,
     [loanRequests]
@@ -406,7 +414,7 @@ export default function LoanApplyHome() {
   };
 
   const goToViewLoan = (customerId) => {
-    navigate(`/dashboard/customer/${customerId}/profile`);
+    navigate(viewLoanPath(customerId));
   };
 
   const recentLoanRows = useMemo(() => {
@@ -487,7 +495,7 @@ export default function LoanApplyHome() {
     >
       <div className="app-grid-page grid min-w-0 gap-4">
         <div className="flex w-full justify-end">
-          <div className="app-segmented w-full sm:w-auto">
+          <div className="app-segmented flex w-full flex-wrap sm:w-auto">
             <button
               type="button"
               onClick={() => setMainTab("apply")}
@@ -531,12 +539,24 @@ export default function LoanApplyHome() {
                 </span>
               ) : null}
             </button>
+            <button
+              type="button"
+              onClick={() => setMainTab("completed")}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                mainTab === "completed"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Loan completed
+            </button>
           </div>
         </div>
 
         <div className="w-full min-w-0">
         {mainTab === "customers" ? <CustomerApprovalsPanel /> : null}
         {mainTab === "requests" ? <LoanRequestsPanel /> : null}
+        {mainTab === "completed" ? <LoanCompletedPanel /> : null}
 
         {mainTab === "apply" ? (
         <>
@@ -663,11 +683,13 @@ export default function LoanApplyHome() {
                     <button
                       type="button"
                       onClick={() =>
-                        row.hasLoan ? goToViewLoan(row.customer.customerId) : goToLoanForm(row.customer.customerId)
+                        customerHasIssuedLoan(row.customer)
+                          ? goToViewLoan(row.customer.customerId)
+                          : goToLoanForm(row.customer.customerId)
                       }
                       className="loan-apply-action-btn"
                     >
-                      {row.hasLoan ? "View loan" : "Apply loan"}
+                      {customerHasIssuedLoan(row.customer) ? "View loan" : "Apply loan"}
                     </button>
                   </div>
                 ))}

@@ -3,6 +3,7 @@ export const NOMINEE_RELATIONSHIP_OPTIONS = [
   "Mother",
   "Father",
   "Brother",
+  "Sister",
   "Daughter",
   "Son",
 ];
@@ -19,6 +20,7 @@ const ALIASES = {
   dad: "Father",
   brother: "Brother",
   bro: "Brother",
+  sister: "Sister",
   daughter: "Daughter",
   son: "Son",
   parent: "",

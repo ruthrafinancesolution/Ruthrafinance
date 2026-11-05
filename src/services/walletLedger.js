@@ -338,6 +338,8 @@ export async function recordLoanDisbursementDeltaLedgerEntry({
   customerName,
   deltaAmount,
   disbursementDateIso,
+  referenceId = "",
+  description = "",
 }) {
   const cid = clean(customerId);
   const delta = Math.round(Number(deltaAmount) || 0);
@@ -358,8 +360,8 @@ export async function recordLoanDisbursementDeltaLedgerEntry({
     personName: name,
     customerName: name,
     customerId: cid,
-    referenceId: cid,
-    description: `Loan principal increase — ${name}`,
+    referenceId: clean(referenceId) || cid,
+    description: clean(description) || `Loan principal increase — ${name}`,
     createdBy: "system",
     submittedAt,
     createdAt: serverTimestamp(),

@@ -40,6 +40,7 @@ import {
 import { calculateLoanValues, findLoanPreset, formatPresetLabel } from "../utils/loanCalculation";
 import { fileToStorableDataUrl } from "../utils/fileToStorableDataUrl";
 import { isValidNomineeRelation, normalizeNomineeRelation } from "../utils/nomineeRelationship";
+import { customerHasIssuedLoan, viewLoanPath } from "../utils/customerLoan";
 import {
   calculateLoanDueDate,
   resolveEmiStartDate,
@@ -497,6 +498,11 @@ export default function LoanApply() {
   }, []);
 
   useEffect(() => {
+    if (!customerHasIssuedLoan(customer)) return;
+    navigate(viewLoanPath(customer.customerId), { replace: true });
+  }, [customer, navigate]);
+
+  useEffect(() => {
     let active = true;
 
     async function resolveLoanId() {
@@ -519,7 +525,7 @@ export default function LoanApply() {
       }
     }
 
-    if (customer) {
+    if (customer && !customerHasIssuedLoan(customer)) {
       setLoanIdLoading(true);
       void resolveLoanId();
     }
@@ -527,7 +533,7 @@ export default function LoanApply() {
     return () => {
       active = false;
     };
-  }, [customer?.applicationId, customer?.loanId, customer?.customerId]);
+  }, [customer, customer?.applicationId, customer?.loanId, customer?.customerId]);
 
   useEffect(() => {
     setCustomEmiAmount("");
@@ -829,6 +835,11 @@ export default function LoanApply() {
     }
     if (!emiAmount || emiAmount <= 0) {
       setError("Enter a valid EMI amount.");
+      return;
+    }
+
+    if (customerHasIssuedLoan(customer)) {
+      navigate(viewLoanPath(customer.customerId), { replace: true });
       return;
     }
 

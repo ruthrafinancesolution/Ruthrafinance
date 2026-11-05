@@ -5,6 +5,7 @@ import EmployeeAddCustomerModal from "../components/employee/EmployeeAddCustomer
 import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import useAuth from "../hooks/useAuth";
 import useEmployeeCenterScope from "../hooks/useEmployeeCenterScope";
+import { customerHasIssuedLoan } from "../utils/customerLoan";
 import { isActiveCustomerRecord } from "../utils/recordFlags";
 
 function isEmployeeAddedCustomer(customer, userUid, employeeId) {
@@ -17,11 +18,7 @@ function isEmployeeAddedCustomer(customer, userUid, employeeId) {
 
 function customerCanApplyForLoan(customer) {
   if (String(customer?.approvalStatus || "").toLowerCase() !== "approved") return false;
-  const loanAmount = Number(customer.loanAmount || 0);
-  const totalPayable = Number(customer.totalPayable || 0);
-  const loanStatus = String(customer.loanStatus || "").toLowerCase();
-  if (loanAmount > 0 && totalPayable > 0 && loanStatus !== "closed") return false;
-  return true;
+  return !customerHasIssuedLoan(customer);
 }
 
 const STATUS_FILTER_OPTIONS = ["All", "Approved", "Pending"];

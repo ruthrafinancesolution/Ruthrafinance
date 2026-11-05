@@ -59,7 +59,7 @@ jobs:
           if-no-files-found: error
 
   deploy_production:
-    name: Deploy production (sandraloanapp-85985.web.app)
+    name: Deploy production (ruthrafinancesolutions.web.app)
     needs: build
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
@@ -80,8 +80,8 @@ jobs:
           test -f .firebaserc
           test -f dist/index.html
           node -e 'const c=require("./firebase.json"); if(!c.hosting||c.hosting.public!=="dist"){process.exit(1)}'
-          node -e 'const fs=require("fs"); const c=JSON.parse(fs.readFileSync(".firebaserc","utf8")); if(!c.projects||!c.projects.default){process.exit(1)}; console.log(c.projects.default)'
-          echo "Deploy scope: hosting only (no Firestore/Auth/Storage)"
+          node -e 'const fs=require("fs"); const c=JSON.parse(fs.readFileSync(".firebaserc","utf8")); if(!c.projects||c.projects.default!=="ruthrafinancesolutions"){console.error("Refusing deploy: Firebase project must be ruthrafinancesolutions"); process.exit(1)}; console.log(c.projects.default)'
+          echo "Deploy scope: hosting only (no Firestore, indexes, Auth, or Storage)"
 
       - name: Verify Firebase service account secret
         env:
@@ -92,7 +92,7 @@ jobs:
             echo "Firebase Console -> Project settings -> Service accounts -> Generate new private key"
             echo "GitHub -> Settings -> Secrets and variables -> Actions -> New repository secret"
             echo "Accepted secret names: FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_SANDRALOANAPP"
-            echo "Service account needs: Firebase Hosting Admin (roles/firebasehosting.admin)"
+            echo "The service account must belong to project ruthrafinancesolutions and needs Firebase Hosting Admin."
             exit 1
           fi
           echo "Firebase service account secret is configured."
@@ -103,7 +103,7 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_SANDRALOANAPP }}
-          projectId: sandraloanapp-85985
+          projectId: ruthrafinancesolutions
           channelId: live
           firebaseToolsVersion: latest
 
@@ -111,8 +111,9 @@ jobs:
         if: steps.deploy.outcome == 'success'
         run: |
           echo "## Production deployment" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Live: https://sandraloanapp-85985.web.app" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Console: https://console.firebase.google.com/project/sandraloanapp-85985/hosting" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Project: ruthrafinancesolutions" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live: https://ruthrafinancesolutions.web.app" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Console: https://console.firebase.google.com/project/ruthrafinancesolutions/hosting" >> "$GITHUB_STEP_SUMMARY"
           if [ -n "${{ steps.deploy.outputs.details_url }}" ]; then
             echo "- Details: ${{ steps.deploy.outputs.details_url }}" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -143,7 +144,7 @@ jobs:
           if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
             echo "::error::Firebase service account secret is not set ? cannot deploy PR preview or update GitHub Deployments."
             echo "Accepted secret names: FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_SANDRALOANAPP"
-            echo "Add the secret to enable preview URLs and clear the Deployments panel on pull requests."
+            echo "The service account must belong to project ruthrafinancesolutions."
             exit 1
           fi
           echo "Firebase service account secret is configured."
@@ -154,7 +155,7 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_SANDRALOANAPP }}
-          projectId: sandraloanapp-85985
+          projectId: ruthrafinancesolutions
           channelId: pr-${{ github.event.pull_request.number }}
           firebaseToolsVersion: latest
 

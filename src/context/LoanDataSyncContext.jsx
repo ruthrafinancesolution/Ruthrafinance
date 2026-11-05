@@ -169,9 +169,9 @@ export function LoanDataSyncProvider({ children }) {
             setLoanRequests(mapLoanRequestDocs(snap.docs));
             markLoanRequestsReady();
           },
-          () => {
+          (err) => {
             if (cancelled) return;
-            setLoanRequests([]);
+            setError(err?.message || "Unable to sync loan requests");
             markLoanRequestsReady();
           }
         );
@@ -183,9 +183,9 @@ export function LoanDataSyncProvider({ children }) {
             setLoanRequests(mapLoanRequestDocs(snap.docs));
             markLoanRequestsReady();
           },
-          () => {
+          (err) => {
             if (cancelled) return;
-            setLoanRequests([]);
+            setError(err?.message || "Unable to sync loan requests");
             markLoanRequestsReady();
           }
         );
@@ -208,9 +208,9 @@ export function LoanDataSyncProvider({ children }) {
           setLoanApplications(mapLoanApplicationDocs(snap.docs));
           markLoanApplicationsReady();
         },
-        () => {
+        (err) => {
           if (cancelled) return;
-          setLoanApplications([]);
+          setError(err?.message || "Unable to sync loans");
           markLoanApplicationsReady();
         }
       );

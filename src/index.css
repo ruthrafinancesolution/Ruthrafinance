@@ -4170,11 +4170,11 @@ td.cr-alert-bg-red:hover,
 }
 
 .accounts-ledger-table--tx .accounts-ledger-col-date {
-  width: 26%;
+  width: 20%;
 }
 
 .accounts-ledger-table--tx .accounts-ledger-col-type {
-  width: 15%;
+  width: 12%;
 }
 
 .accounts-ledger-table--tx .accounts-ledger-col-category {
@@ -4182,11 +4182,15 @@ td.cr-alert-bg-red:hover,
 }
 
 .accounts-ledger-table--tx .accounts-ledger-col-amount {
-  width: 13%;
+  width: 14%;
 }
 
 .accounts-ledger-table--tx .accounts-ledger-col-status {
-  width: 24%;
+  width: 16%;
+}
+
+.accounts-ledger-table--tx .accounts-ledger-col-actions {
+  width: 16%;
 }
 
 .accounts-ledger-table--tx th {
@@ -4232,6 +4236,11 @@ td.cr-alert-bg-red:hover,
   text-align: center;
 }
 
+.accounts-ledger-table--tx th.accounts-ledger-col-actions,
+.accounts-ledger-table--tx td.accounts-ledger-col-actions {
+  text-align: right;
+}
+
 .accounts-ledger-table--tx td.accounts-ledger-col-category {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4252,11 +4261,11 @@ td.cr-alert-bg-red:hover,
   }
 
   .accounts-workspace-split .accounts-ledger-table--tx .accounts-ledger-col-date {
-    width: 26%;
+    width: 20%;
   }
 
   .accounts-workspace-split .accounts-ledger-table--tx .accounts-ledger-col-type {
-    width: 15%;
+    width: 12%;
   }
 
   .accounts-workspace-split .accounts-ledger-table--tx .accounts-ledger-col-category {
@@ -4264,11 +4273,15 @@ td.cr-alert-bg-red:hover,
   }
 
   .accounts-workspace-split .accounts-ledger-table--tx .accounts-ledger-col-amount {
-    width: 13%;
+    width: 14%;
   }
 
   .accounts-workspace-split .accounts-ledger-table--tx .accounts-ledger-col-status {
-    width: 24%;
+    width: 16%;
+  }
+
+  .accounts-workspace-split .accounts-ledger-table--tx .accounts-ledger-col-actions {
+    width: 16%;
   }
 
   .accounts-workspace-split .accounts-ledger-table--tx th,

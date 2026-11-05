@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { firebaseConfig } from "../firebase/config";
-import { getFirebaseProjectId } from "../firebase/environment";
+import { getFirebaseProjectId, isUsingFirebaseEmulators } from "../firebase/environment";
 
 export default function FirebaseSyncAlert({ error, customerCount, loading, className = "" }) {
   if (loading) {
@@ -38,17 +38,28 @@ export default function FirebaseSyncAlert({ error, customerCount, loading, class
         <div>
           <p className="font-semibold">No active customers loaded from Firebase</p>
           <p className="mt-1 text-xs leading-relaxed">
-            Firestore project <span className="font-mono">{projectId}</span> returned 0 active customers. Records may be
-            soft-deleted — open Customer → <span className="font-semibold">Deleted</span> tab to restore them. Use{" "}
-            <a
-              href={`https://${projectId}.web.app`}
-              className="font-semibold underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {projectId}.web.app
-            </a>{" "}
-            after deploy.
+            {isUsingFirebaseEmulators() ? (
+              <>
+                Local emulator project <span className="font-mono">{projectId}</span> has no active customers yet.
+                Sample customers are created from Admin Controls, or add one from Customer. This data stays on
+                localhost and is not the live database.
+              </>
+            ) : (
+              <>
+                Firestore project <span className="font-mono">{projectId}</span> returned 0 active customers. Records may
+                be soft-deleted — open Customer → <span className="font-semibold">Deleted</span> tab to restore them.
+                Use{" "}
+                <a
+                  href={`https://${projectId}.web.app`}
+                  className="font-semibold underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {projectId}.web.app
+                </a>{" "}
+                after deploy.
+              </>
+            )}
           </p>
         </div>
       </div>

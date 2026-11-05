@@ -504,6 +504,7 @@ export default function Accounts() {
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [assignSalaryModalOpen, setAssignSalaryModalOpen] = useState(false);
+  const [deleteTransactionTarget, setDeleteTransactionTarget] = useState(null);
   const [assignSalaryForm, setAssignSalaryForm] = useState(emptyAssignSalaryForm);
   const [assignSalaryError, setAssignSalaryError] = useState("");
 
@@ -1320,12 +1321,24 @@ export default function Accounts() {
     setTransactionModalOpen(true);
   }
 
-  async function handleDeleteTransaction(item) {
-    if (!window.confirm(`Delete transaction ${item.transaction_id}?`)) return;
+  function handleDeleteTransaction(item) {
+    setTransactionError("");
+    setDeleteTransactionTarget(item);
+  }
+
+  function closeDeleteTransactionModal() {
+    if (saving) return;
+    setDeleteTransactionTarget(null);
+  }
+
+  async function confirmDeleteTransaction() {
+    if (!deleteTransactionTarget?.transaction_id) return;
     setSaving(true);
     setStatusMessage("");
+    setTransactionError("");
     try {
-      await deleteAccountsTransaction(item.transaction_id, actor);
+      await deleteAccountsTransaction(deleteTransactionTarget.transaction_id, actor);
+      setDeleteTransactionTarget(null);
       setStatusMessage("Transaction deleted.");
     } catch (error) {
       setTransactionError(error.message || "Unable to delete transaction");
@@ -2112,6 +2125,7 @@ export default function Accounts() {
                     <col className="accounts-ledger-col-category" />
                     <col className="accounts-ledger-col-amount" />
                     <col className="accounts-ledger-col-status" />
+                    <col className="accounts-ledger-col-actions" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -2120,12 +2134,13 @@ export default function Accounts() {
                       <th className="accounts-ledger-col-category">Category</th>
                       <th className="accounts-ledger-col-amount">Amount</th>
                       <th className="accounts-ledger-col-status">Status</th>
+                      <th className="accounts-ledger-col-actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           <EmptyState message="No transactions match the selected filters." />
                         </td>
                       </tr>
@@ -2144,6 +2159,30 @@ export default function Accounts() {
                           <td className="accounts-ledger-col-amount font-semibold tabular-nums text-slate-950">{formatCurrency(item.amount)}</td>
                           <td className="accounts-ledger-col-status">
                             <StatusBadge value={item.status} />
+                          </td>
+                          <td className="accounts-ledger-col-actions">
+                            <div className="accounts-ledger-row-actions">
+                              <button
+                                type="button"
+                                title="Edit transaction"
+                                aria-label="Edit transaction"
+                                disabled={saving}
+                                onClick={() => handleEditTransaction(item)}
+                                className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete transaction"
+                                aria-label="Delete transaction"
+                                disabled={saving}
+                                onClick={() => handleDeleteTransaction(item)}
+                                className="rounded-lg border border-rose-100 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 disabled:opacity-60"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -2368,6 +2407,57 @@ export default function Accounts() {
           </div>
         ) : null}
       </div>
+
+      <AccountsModal
+        open={Boolean(deleteTransactionTarget)}
+        onClose={closeDeleteTransactionModal}
+        title="Delete transaction"
+        icon={Trash2}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-slate-600">
+            Delete{" "}
+            <span className="font-semibold text-slate-900">
+              {deleteTransactionTarget?.category || deleteTransactionTarget?.transaction_type || "this transaction"}
+            </span>{" "}
+            for{" "}
+            <span className="font-semibold tabular-nums text-slate-900">
+              {formatCurrency(deleteTransactionTarget?.amount)}
+            </span>
+            ? This updates Income / Other expense totals.
+          </p>
+          {deleteTransactionTarget ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">
+              <p>
+                <span className="font-semibold text-slate-500">Date:</span> {formatDate(deleteTransactionTarget.date)}
+              </p>
+              <p className="mt-1 capitalize">
+                <span className="font-semibold text-slate-500">Type:</span> {deleteTransactionTarget.transaction_type}
+              </p>
+            </div>
+          ) : null}
+          {transactionError ? <p className="text-sm text-rose-600">{transactionError}</p> : null}
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={closeDeleteTransactionModal}
+              className="app-button-secondary rounded-xl px-4 py-2.5 text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={confirmDeleteTransaction}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {saving ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        </div>
+      </AccountsModal>
 
       <AccountsModal
         open={transactionModalOpen}

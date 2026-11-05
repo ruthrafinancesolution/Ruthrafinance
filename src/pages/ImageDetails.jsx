@@ -8,6 +8,7 @@ import { LOAN_CENTERS_CHANGED_EVENT } from "../constants/loanCenterStorage";
 import useAuth from "../hooks/useAuth";
 import { listAllCustomerAmountEntries, listCustomers } from "../services/userAuth";
 import { getCustomerCountry, hasAppliedForLoan } from "../utils/customerSheets";
+import { customerHasIssuedLoan, viewLoanPath } from "../utils/customerLoan";
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString("en-IN");
@@ -512,11 +513,17 @@ export default function ImageDetails() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate("/dashboard/loan-apply/" + selectedRow.customerId, { state: { applyLoan: true, customer: selectedCustomer } })}
+                        onClick={() =>
+                          customerHasIssuedLoan(selectedCustomer)
+                            ? navigate(viewLoanPath(selectedRow.customerId))
+                            : navigate("/dashboard/loan-apply/" + selectedRow.customerId, {
+                                state: { applyLoan: true, customer: selectedCustomer },
+                              })
+                        }
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
                       >
                         <FileText className="h-4 w-4" />
-                        Loan Apply
+                        {customerHasIssuedLoan(selectedCustomer) ? "View loan" : "Loan Apply"}
                       </button>
                     </div>
                   </div>

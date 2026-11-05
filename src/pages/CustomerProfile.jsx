@@ -1,5 +1,5 @@
 import { Component, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Banknote,
@@ -22,6 +22,8 @@ import { useLoanDataSync } from "../context/LoanDataSyncContext";
 import { buildInstallmentSchedule, formatTotalTenureLabel, safeDate } from "../utils/customerProfileSchedule";
 import { computeTenureBreakdown } from "../utils/employeeCollectionDetails";
 import { downloadCustomerProfilePdf } from "../utils/customerProfilePdf";
+import { customerHasIssuedLoan } from "../utils/customerLoan";
+import { entriesForLoan } from "../utils/loanCompletion";
 import { isImageAttachment, isPdfAttachment, openCustomerDocument } from "../utils/customerDocumentAttachments";
 
 function formatCurrency(value) {
@@ -224,7 +226,11 @@ function CustomerProfileContent() {
   const { customerId: rawCustomerId } = useParams();
   const customerId = typeof rawCustomerId === "string" ? rawCustomerId.trim() : "";
   const navigate = useNavigate();
-  const { customers, entries, loading: syncLoading, error: syncError } = useLoanDataSync();
+  const [searchParams] = useSearchParams();
+  const readOnlyCompleted = searchParams.get("view") === "completed";
+  const readOnlyLoan = searchParams.get("view") === "loan" || readOnlyCompleted;
+  const focusLoanId = String(searchParams.get("loan") || "");
+  const { customers, entries, loanApplications, loading: syncLoading, error: syncError } = useLoanDataSync();
   const [profileSearch, setProfileSearch] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [timedOutCustomerId, setTimedOutCustomerId] = useState(null);
@@ -254,6 +260,42 @@ function CustomerProfileContent() {
     return safeEntries.filter((e) => String(e?.customerId || "").trim() === customerId);
   }, [safeEntries, customerIdValid, customerId]);
 
+  const customerLoans = useMemo(() => {
+    return (Array.isArray(loanApplications) ? loanApplications : []).filter(
+      (loan) => String(loan?.customerId || "") === customerId
+    );
+  }, [loanApplications, customerId]);
+
+  const focusLoan = useMemo(() => {
+    if (!focusLoanId) return null;
+    return (
+      customerLoans.find((loan) => String(loan.applicationId || loan.id || "") === focusLoanId) || null
+    );
+  }, [customerLoans, focusLoanId]);
+
+  const loanSource = useMemo(() => {
+    if (!customer) return null;
+    if (!focusLoan) return customer;
+    return {
+      ...customer,
+      loanAmount: focusLoan.loanAmount,
+      loanWeeks: focusLoan.loanWeeks,
+      emiAmount: focusLoan.emiAmount,
+      weeklyDue: focusLoan.weeklyDue,
+      totalPayable: focusLoan.totalPayable,
+      interestAmount: focusLoan.interestAmount,
+      loanStatus: focusLoan.loanStatus,
+      disbursementDate: focusLoan.disbursementDate,
+      dueDate: focusLoan.dueDate,
+      loanIssueDate: focusLoan.loanIssueDate,
+      loanApprovedAt: focusLoan.loanApprovedAt,
+      closedAt: focusLoan.closedAt,
+      applicationId: focusLoan.applicationId || focusLoan.id,
+      coApplicantRelation: focusLoan.coApplicantRelation || customer.coApplicantRelation,
+      coApplicantName: focusLoan.coApplicantName || customer.coApplicantName,
+    };
+  }, [customer, focusLoan]);
+
   const orderedIds = useMemo(() => {
     return safeCustomers
       .map((c) => c?.customerId || c?.id)
@@ -263,28 +305,33 @@ function CustomerProfileContent() {
   const prevCustomerId = navIndex >= 0 && navIndex < orderedIds.length - 1 ? orderedIds[navIndex + 1] : null;
   const nextCustomerId = navIndex > 0 ? orderedIds[navIndex - 1] : null;
 
-  const totalPayable = Number(customer?.totalPayable || 0);
-  const principal = Number(customer?.loanAmount || 0);
+  const scopedEntries = useMemo(() => {
+    if (!focusLoan) return customerEntries;
+    return entriesForLoan(focusLoan, customerLoans.length ? customerLoans : [focusLoan], customerEntries);
+  }, [focusLoan, customerLoans, customerEntries]);
+
+  const totalPayable = Number(loanSource?.totalPayable || 0);
+  const principal = Number(loanSource?.loanAmount || 0);
   const interestAmount = Math.max(totalPayable - principal, 0);
   const approvedEntries = useMemo(
-    () => customerEntries.filter((e) => String(e.approvalStatus || "").toLowerCase() === "approved"),
-    [customerEntries]
+    () => scopedEntries.filter((e) => String(e.approvalStatus || "").toLowerCase() === "approved"),
+    [scopedEntries]
   );
   const totalCollected = approvedEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
   const pendingBalance = Math.max(totalPayable - totalCollected, 0);
   const hasLoan = principal > 0;
 
   const schedule = useMemo(() => {
-    if (!customer || !hasLoan) return [];
-    return buildInstallmentSchedule(customer, customerEntries);
-  }, [customer, customerEntries, hasLoan]);
+    if (!loanSource || !hasLoan) return [];
+    return buildInstallmentSchedule(loanSource, scopedEntries);
+  }, [loanSource, scopedEntries, hasLoan]);
 
   const firstEmiAmount = schedule[0]?.dueAmount ?? 0;
 
   const tenureBreakdown = useMemo(() => {
-    if (!customer || !hasLoan) return null;
-    return computeTenureBreakdown(customer, customerEntries);
-  }, [customer, customerEntries, hasLoan]);
+    if (!loanSource || !hasLoan) return null;
+    return computeTenureBreakdown(loanSource, scopedEntries);
+  }, [loanSource, scopedEntries, hasLoan]);
 
   const pendingTenureLabel = !schedule.length
     ? "—"
@@ -292,7 +339,7 @@ function CustomerProfileContent() {
       ? tenureBreakdown.pendingTenures.join(", ")
       : "0";
 
-  const totalTenureLabel = formatTotalTenureLabel(customer, schedule.length);
+  const totalTenureLabel = formatTotalTenureLabel(loanSource, schedule.length);
 
   const scheduleFiltered = useMemo(() => {
     const q = profileSearch.trim().toLowerCase();
@@ -311,11 +358,11 @@ function CustomerProfileContent() {
     if (customer.submittedAt) {
       rows.push({ at: customer.submittedAt, label: "Customer registered", sort: new Date(customer.submittedAt).getTime() });
     }
-    if (customer.loanApprovedAt) {
-      rows.push({ at: customer.loanApprovedAt, label: "Loan approved", sort: new Date(customer.loanApprovedAt).getTime() });
+    if (loanSource.loanApprovedAt) {
+      rows.push({ at: loanSource.loanApprovedAt, label: "Loan approved", sort: new Date(loanSource.loanApprovedAt).getTime() });
     }
-    if (customer.disbursementDate) {
-      rows.push({ at: customer.disbursementDate, label: "Loan disbursed", sort: new Date(customer.disbursementDate).getTime() });
+    if (loanSource.disbursementDate) {
+      rows.push({ at: loanSource.disbursementDate, label: "Loan disbursed", sort: new Date(loanSource.disbursementDate).getTime() });
     }
     approvedEntries.forEach((e) => {
       const when = e.approvedAt || e.collectionDate || e.submittedAt;
@@ -327,12 +374,12 @@ function CustomerProfileContent() {
         });
       }
     });
-    if (customer.closedAt) {
-      rows.push({ at: customer.closedAt, label: "Loan closed", sort: new Date(customer.closedAt).getTime() });
+    if (loanSource.closedAt) {
+      rows.push({ at: loanSource.closedAt, label: "Loan closed", sort: new Date(loanSource.closedAt).getTime() });
     }
     rows.sort((a, b) => a.sort - b.sort);
     return rows;
-  }, [customer, approvedEntries]);
+  }, [customer, loanSource, approvedEntries]);
 
   const badges = useMemo(() => {
     if (!customer) return [];
@@ -342,14 +389,22 @@ function CustomerProfileContent() {
     if (!hasLoan) list.push({ label: "Pending", className: "bg-slate-100 text-slate-800 border-slate-200" });
     else if (pendingBalance <= 0 && totalPayable > 0) list.push({ label: "Closed", className: "bg-emerald-100 text-emerald-900 border-emerald-200" });
     else list.push({ label: "Loan running", className: "bg-sky-100 text-sky-900 border-sky-200" });
-    if (hasLoan && pendingBalance > 0 && customer.dueDate) {
-      const due = safeDate(customer.dueDate);
+    if (hasLoan && pendingBalance > 0 && loanSource.dueDate) {
+      const due = safeDate(loanSource.dueDate);
       if (due && startOfDay(due) < startOfDay(new Date())) {
         list.push({ label: "Overdue risk", className: "bg-rose-100 text-rose-900 border-rose-200" });
       }
     }
     return list;
-  }, [customer, hasLoan, pendingBalance, totalPayable]);
+  }, [customer, loanSource, hasLoan, pendingBalance, totalPayable]);
+
+  useEffect(() => {
+    if (!readOnlyLoan || !customer) return undefined;
+    const timer = window.setTimeout(() => {
+      document.getElementById("loan")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [readOnlyLoan, customer]);
 
   useEffect(() => {
     if (customer?.customerName) {
@@ -473,7 +528,7 @@ function CustomerProfileContent() {
         <div className="admin-mobile-toolbar-visible no-print flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate("/dashboard/customer")}
+            onClick={() => navigate(readOnlyCompleted ? "/dashboard/loan-apply?tab=completed" : "/dashboard/customer")}
             className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -626,26 +681,39 @@ function CustomerProfileContent() {
                     <p>
                       <span className="font-medium text-slate-500">Loan status (record)</span>
                       <br />
-                      {customer.loanStatus || "—"}
+                      {(readOnlyCompleted ? loanSource?.loanStatus : customer.loanStatus) || "—"}
                     </p>
                   </div>
 
                   <div className="no-print mt-4 flex flex-wrap gap-2">
-                    <Link
-                      to={`/dashboard/loan-apply/${customer.customerId}`}
-                      state={{ applyLoan: true, customer }}
-                      className="app-button-primary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
-                    >
-                      <Banknote className="h-4 w-4" />
-                      Apply loan
-                    </Link>
-                    <Link
-                      to="/dashboard/collection"
-                      className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
-                    >
-                      <ReceiptText className="h-4 w-4" />
-                      Add collection
-                    </Link>
+                    {readOnlyCompleted || customerHasIssuedLoan(customer) ? (
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("loan")?.scrollIntoView({ behavior: "smooth" })}
+                        className="app-button-primary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+                      >
+                        <Banknote className="h-4 w-4" />
+                        View loan
+                      </button>
+                    ) : (
+                      <Link
+                        to={`/dashboard/loan-apply/${customer.customerId}`}
+                        state={{ applyLoan: true, customer }}
+                        className="app-button-primary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+                      >
+                        <Banknote className="h-4 w-4" />
+                        Apply loan
+                      </Link>
+                    )}
+                    {readOnlyCompleted ? null : (
+                      <Link
+                        to="/dashboard/collection"
+                        className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+                      >
+                        <ReceiptText className="h-4 w-4" />
+                        Add collection
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => window.print()}
@@ -663,20 +731,24 @@ function CustomerProfileContent() {
                       <Download className="h-4 w-4" />
                       {pdfBusy ? "PDF…" : "Download PDF"}
                     </button>
-                    <Link
-                      to={`/dashboard/customer/${customer.customerId}`}
-                      className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit customer
-                    </Link>
-                    <Link
-                      to="/dashboard/collection"
-                      className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
-                    >
-                      <History className="h-4 w-4" />
-                      View transactions
-                    </Link>
+                    {readOnlyCompleted ? null : (
+                      <Link
+                        to={`/dashboard/customer/${customer.customerId}`}
+                        className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit customer
+                      </Link>
+                    )}
+                    {readOnlyCompleted ? null : (
+                      <Link
+                        to="/dashboard/collection"
+                        className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+                      >
+                        <History className="h-4 w-4" />
+                        View transactions
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
@@ -693,12 +765,13 @@ function CustomerProfileContent() {
                     ["Loan amount", formatCurrency(principal)],
                     ["Interest (est.)", formatCurrency(interestAmount)],
                     ["EMI amount", formatCurrency(firstEmiAmount)],
-                    ["Loan start", formatDateShort(customer.disbursementDate || customer.loanApprovedAt || customer.submittedAt)],
-                    ["Due date", formatDateShort(customer.dueDate)],
+                    ["Loan start", formatDateShort(loanSource.disbursementDate || loanSource.loanApprovedAt || loanSource.submittedAt)],
+                    ["Due date", formatDateShort(loanSource.dueDate)],
                     ["Paid amount", formatCurrency(totalCollected)],
                     ["Pending amount", formatCurrency(pendingBalance)],
                     ["Remaining balance", formatCurrency(pendingBalance)],
-                    ["Loan status", customer.loanStatus || (pendingBalance <= 0 ? "Settled" : "Active")],
+                    ["Loan status", loanSource.loanStatus || (pendingBalance <= 0 ? "Completed" : "Active")],
+                    ["Loan ID", loanSource.applicationId || "—"],
                     ["Pending tenure", pendingTenureLabel],
                     ["Total tenure", totalTenureLabel],
                   ].map(([k, v]) => (
@@ -772,7 +845,7 @@ function CustomerProfileContent() {
                   ["ID type", customer.identityType],
                   ["Co-applicant name", customer.coApplicantName],
                   ["Co-applicant contact", customer.coApplicantContact],
-                  ["Co-applicant relation", customer.coApplicantRelation],
+                  ["Co-applicant relation", loanSource.coApplicantRelation || customer.coApplicantRelation],
                   ["Co-applicant address", customer.coApplicantAddress],
                   ["Co-applicant ID", customer.coApplicantIdentityNumber],
                 ].map(([label, val]) => (

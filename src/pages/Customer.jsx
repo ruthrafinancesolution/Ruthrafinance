@@ -18,6 +18,7 @@ import {
   restoreCustomer,
 } from "../services/userAuth";
 import FirebaseSyncAlert from "../components/FirebaseSyncAlert";
+import { customerHasIssuedLoan } from "../utils/customerLoan";
 import AdminLayout from "../components/dashboard/AdminLayout";
 import { CUSTOMER_DAY_FILTER_OPTIONS, loadCentersWithDay } from "../constants/dayCenters";
 import useAuth from "../hooks/useAuth";
@@ -83,7 +84,7 @@ function Avatar({ name, size = "md" }) {
   );
 }
 
-function ActionPanel({ customer, isAdmin, onView, onApplyLoan, onDelete }) {
+function ActionPanel({ customer, isAdmin, onView, onApplyLoan, onViewLoan, onDelete }) {
   const iconButtonClass =
     "inline-flex h-9 w-9 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-xl border transition active:scale-[0.97]";
 
@@ -118,15 +119,27 @@ function ActionPanel({ customer, isAdmin, onView, onApplyLoan, onDelete }) {
           <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
         </button>
       ) : null}
-      <button
-        type="button"
-        onClick={() => onApplyLoan(customer)}
-        className="inline-flex w-auto shrink-0 cursor-pointer touch-manipulation items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 px-3 py-2 text-[11px] font-semibold text-white shadow-md shadow-blue-600/25 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-600/30 active:translate-y-0 active:scale-[0.99]"
-        aria-label="Apply loan for this customer"
-      >
-        <FileText className="h-3.5 w-3.5 shrink-0 opacity-95" aria-hidden />
-        Apply loan
-      </button>
+      {customerHasIssuedLoan(customer) ? (
+        <button
+          type="button"
+          onClick={() => onViewLoan(customer)}
+          className="inline-flex w-auto shrink-0 cursor-pointer touch-manipulation items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 px-3 py-2 text-[11px] font-semibold text-white shadow-md shadow-blue-600/25 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-600/30 active:translate-y-0 active:scale-[0.99]"
+          aria-label="View loan for this customer"
+        >
+          <FileText className="h-3.5 w-3.5 shrink-0 opacity-95" aria-hidden />
+          View loan
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onApplyLoan(customer)}
+          className="inline-flex w-auto shrink-0 cursor-pointer touch-manipulation items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 px-3 py-2 text-[11px] font-semibold text-white shadow-md shadow-blue-600/25 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-600/30 active:translate-y-0 active:scale-[0.99]"
+          aria-label="Apply loan for this customer"
+        >
+          <FileText className="h-3.5 w-3.5 shrink-0 opacity-95" aria-hidden />
+          Apply loan
+        </button>
+      )}
     </div>
   );
 }
@@ -303,6 +316,13 @@ export default function Customer() {
       navigate(`/dashboard/customer/${customer.customerId}/profile`, {
         state: { viewOnly: true, customerId: customer.customerId },
       });
+    },
+    [navigate]
+  );
+
+  const handleViewLoan = useCallback(
+    (customer) => {
+      navigate(`/dashboard/customer/${customer.customerId}/profile?view=loan#loan`);
     },
     [navigate]
   );
@@ -758,6 +778,7 @@ export default function Customer() {
                                     isAdmin={isAdmin}
                                     onView={handleViewDetails}
                                     onApplyLoan={handleApplyLoan}
+                                    onViewLoan={handleViewLoan}
                                     onDelete={setDeleteTarget}
                                   />
                                 )}
